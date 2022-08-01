@@ -6,3 +6,5 @@ here are licensed under the _Apache 2.0_ license which is more amenable to comme
 
 Each example is in a separate subdirectory. **If you have an example you'd like to submit, encapsulate it within
 a subdirectory and send a PR.** _Python_ is not required, any language will do!
+
+* `peers` get netflow peers (by name) for a host
