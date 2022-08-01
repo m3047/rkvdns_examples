@@ -1,0 +1,248 @@
+<html>
+<head>
+  <title>peers -- get netflow peers (named) for a host</title>
+  <style type="text/css">
+code    { color: #664400; }
+h1, .footer
+        { background: #cccccc; }
+h2      { background: #eeeeee; }
+h1 code { font-size: 150%; }
+  </style>
+</head>
+<body>
+  <h1><code>peers</code> get netflow peers for a host</h1>
+  <p class="banner"><span class="head">Source (GitHub):</span> <a href="https://github.com/m3047/rkvdns_examples/tree/main/peers">https://github.com/m3047/rkvdns_examples/tree/main/peers</a></p>
+    <ul>
+      <li><a href="#discussion">Discussion</a></li>
+        <ul>
+          <li><a href="#rkvdns_proxy">RKVDNS Proxy</a></li>
+          <li><a href="#rear_view_rpz">Rear View RPZ</a></li>
+          <li><a href="#dns_monitoring">DNS Monitoring</a></li>
+          <li><a href="#netflow_monitoring">Netflow Monitoring</a></li>
+        </ul>
+      <li><a href="#pydoc">pydoc</a></li>
+      <li><a href="#examples">Examples</a></li>
+    </ul>
+  <p>Provided with a <em>hostname</em> (fqdn), does the following:
+    <ol>
+      <li>Perform an address lookup of the hostname.</li>
+      <li>Query an <a href="https://github.com/m3047/rkvdns">RKVDNS</a> proxy to extract
+          netflow peers from a Redis database.
+      </li>
+      <li>Perform reverse (PTR) DNS lookups on the peer addresses to get the resource names.
+          The PTR records are synthesized with <a href="https://github.com/m3047/rear_view_rpz">Rear View RPZ</a>.
+      </li>
+    </ol>
+  </p>
+  <p>Advantages of this approach are as follows:
+    <ul>
+      <li>Separation of netflow and DNS monitoring concerns.</li>
+      <li>Tactical flexibility in monitoring, distributed close to endpoints.</li>
+      <li>Meaningful, relevant reverse (PTR) lookups.</li>
+    </ul>
+    This is not a DNS exfil or C&amp;C detection tool, but a comprehensive mapping of resource
+    discovery to data exchange activity.
+  </p>
+  <h2><a name="discussion"></a>Discussion</h2>
+  <p>One of the key design considerations of this approach is separation of the concerns of DNS and
+     netflow monitoring. This is supposed to be tactical code; it is intended to be ridiculously easy
+     to deploy, with minimal external dependencies. The general installation instructions are: clone
+     the required GitHub repositories into the same directory (e.g. <code>/usr/local/share</code>),
+     install python prerequisites, configure, run.
+  </p>
+  <p>Arguably the most difficult aspect of this integrated solution is obtaining and configuring a
+     caching DNS server (e.g. <cite>BIND</cite> or <cite>Unbound</cite>) with Dnstap and 
+     Response Policy Zones (RPZ). If you look
+     at some of these projects (ShoDoFlo and Rear View RPZ in particular) you will find additional
+     documentation addressing these concerns.
+  </p>
+  <p>In my opinion these are worthwhile tactical capabilities:
+    <ul>
+      <li><b>Dnstap</b> -- application level DNS traffic inspection telemetry generated within the nameserver</li>
+      <li><b>RPZ</b> -- equivalent of a <cite>web application firewall</cite> for DNS, and more</li>
+    </ul>
+  </p>
+  <h3><a name="rkvdns_proxy"></a>RKVDNS Proxy</h3>
+  <p><a href="https://github.com/m3047/rkvdns">RKVDNS</a> proxies a Redis database via DNS lookups.</p>
+  <p>In this case our database contains netflow data, populated by the
+     <a href="https://github.com/m3047/shodohflo/blob/master/agents/pcap_agent.py">ShoDoHFlo pcap agent</a>.
+     You can collect this data in any way which is convenient to you.
+  </p>
+  <p>This particular database has a key for each peer; each key starts with the address associated
+     with the hostname in question. We use a Redis <code>keys</code> query to get all of the netflow
+     records for that hostname, and then extract the peer addresses.
+  </p>
+  <p>For proper operation the proxy needs to listen on port 53, the standard DNS port, and in most
+     &quot;off the shelf&quot; environments this requires <code>root</code> access.
+  </p>
+  <h3><a name="rear_view_rpz"></a>Rear View RPZ</h3>
+  <p><a href="https://github.com/m3047/rear_view_rpz">Rear View RPZ</a> utilizes Dnstap telemetry to populate
+     a (DNS) zone with synthesized PTR (reverse lookup) records. This zone is then configured as an RPZ,
+     overriding the globally defined values when local knowledge is available.
+  </p>
+  <p>This takes control of reverse lookups away from the cloud providers and gives it to you.</p>
+  <p>You don't have to have locally synthesized PTR records, but your hit rate will be as low as 50%.
+     Here is a <a href="https://github.com/m3047/rear_view_rpz/blob/main/utilities/PTR_Recs_Useless.md">writeup
+     on the sorry state</a> of PTR records today.
+  </p>
+  <h3><a name="dns_monitoring"></a>DNS Monitoring</h3>
+  <p>The data collection is intended to happen as close to the endpoint devices as possible: the caching
+     resolver configured for that network segment. Sometimes there will be simple forwarders (e.g. <cite>dnsmasq</cite>)
+     between the endpoints and the actual caching resolver; that's ok. Local is better.
+  </p>
+  <p>If you have several endpoint networks under your control, the advantage of capturing the host &larr;&rarr; address
+     mappings in a zone file becomes clear: you can use (the DNS) zone transfer facility to aggregate the collected
+     data in a central location (where you can also utilize them as RPZs if you wish). Bear in mind that utilizing
+     these zones as RPZs is convenient, but there are other ways to consume or extract the data from zone files.
+  </p>
+  <h3><a name="netflow_monitoring"></a>Netflow Monitoring</h3>
+  <p>Simply put, if you want to identify specific devices then network traffic (netflow) monitoring needs to
+     happen on the endpoint side of any network address translation (NAT) horizon, because on the other side
+     of that horizon, all endpoints within it are collapsed into a single address.
+  </p>
+  <p>The <a href="https://github.com/m3047/shodohflo/blob/master/agents/pcap_agent.py">ShoDoHFlo pcap agent</a> is
+     written in Python, there are more performant options available (this works for me, YMMV).
+     The agent puts the observed netflows into a
+     Redis database; we then proxy the Redis data to DNS with RKVDNS. You don't have to use ShoDoHFlo's agent,
+     if you populate the same keys then everything else will keep working. If you have something else writing
+     netflows to Redis then you may have to change the DNS query which RKVDNS uses (and the extraction logic
+     that this script uses). If you don't have Redis,
+     then you'll need to find some other way to proxy the data to DNS because RKVDNS specifically works with
+     Redis. Unfortunately there is no "all the things" equivalent to the DNS zone transfer because of the
+     dynamic nature of the data in question.
+  </p>
+  <p>Although the actual netflow capture needs to occur on the endpoint network, neither Redis or RKVDNS needs
+     to live there, nor do Redis and RKVDNS need to live in the same place. Having the Redis instance upstream
+     (farther) from the endpoint network should be no problem from a NAT standpoint. However like Redis, the
+     RKVDNS proxy needs to receive (DNS) requests from clients so it cannot be behind a NAT horizon from the
+     perspective of those clients without a static NAT mapping allowing the clients access.
+  </p>
+  <h2><a name="pydoc"></a>pydoc</h2>
+  <pre>
+Help on module peers:
+
+NAME
+    peers - Netflow Peers.
+
+DESCRIPTION
+    Command line:
+    
+        peers.py &lt;fqdn&gt; [&lt;rkvd-domain&gt; [&lt;dns-server&gt;]] {+debug} {+addr[esses]}
+        
+    Lists, symbolically when possible, the netflow peers of the specified host.
+    
+        fqdn         This is the (resolvable) fully qualified hostname, or an address.
+        rkvd-domain  The domain that rkvdns serves responses under.
+        dns-server   This is the (optional) dns server to use for DNS requests.
+        debug        If specified (preceded by '+') then intermediate results are
+                     printed to STDOUT.
+        addresses    The addresses are printed after the hostnames in all cases, not just
+                     when the reverse lookup fails.
+        
+    Corresponding entries can be set in an optional `configuration.py`:
+    
+        DOMAIN      Akin to a search list, this is the domain to be appended to the
+                    hostname/fqdn.
+        RKVDNS      The domain that rkvdns serves responses under. See below.
+        SERVER      The address of the dns server.
+        
+    Refer to the documentation for RKVDNS. Our query will be fabricated into a domain
+    name looking something like
+    
+        address;*;flow.keys.proxy.redis.example.com
+    
+    The RKVDNS domain in this example is proxy.redis.example.com
+    
+    Order of Operation
+    ------------------
+    
+    1) fqdn / hostname is resolved.
+    
+        Unless the name parses as an IPv4 or IPv6 address, it is resolved with A / AAAA
+        queries to identify the actual address. IPv6 is preferred.
+        
+        If DOMAIN is defined, then it is appended to the fqdn (unless it matches the
+        righthand side of the fqdn) before attempting DNS resolution.
+        
+    2) Uses rkvdns to query a redis database containing flow information.
+    
+        There is a Redis database with keys conforming to the following pattern:
+        
+            &lt;client&gt;;&lt;peer&gt;;&lt;port&gt;;flow
+            
+        Notice that this is case sensitive, that is "flow" is lower case.
+        
+        The address established in step 1 is queried for as client keys:
+        
+            "&lt;resolved-address&gt;;*;flow"
+        
+        The Redis database is maintained by pcap-agent.
+        (https://github.com/m3047/shodohflo/blob/master/agents/pcap_agent.py)
+        
+    3) Reverse (PTR) lookups are performed for each &lt;peer&gt;
+    
+        Straightforward. Personally however I'm using a nameserver which offers
+        synthesized PTR records, increasing my coverage to over 90%; good luck if
+        you even get 50% accuracy with normal DNS.
+        
+        I synthesize PTR records with Rear View RPZ.
+        (https://github.com/m3047/rear_view_rpz)
+    
+    
+    Assumptions
+    -----------
+    
+    The RKVDNS instance is configured with CASE_FOLDING = 'lower'.
+
+FUNCTIONS
+    escape(qname)
+        Escape . and ;
+    
+    lart(msg=None, help='peers fqdn [rkvdns-domain [dns-server]]')
+    
+    main(target, rkvdns, resolver, debug)
+
+DATA
+    ADDITIONAL_NAMES = '...'
+    ADDRESS_TYPES = (28, 1)
+    DOMAIN = ['example.com']
+    ESCAPED = {'.', ';'}
+    MISSING_NAME = ''
+    OUTPUT_FORMAT = '{} [{}]'
+    QUERY = '{};*;flow'
+    RKVDNS = 'proxy.redis.example.com'
+    SERVER = '10.0.0.1'
+  </pre>
+  <h2><a name="examples"></a>Examples</h2>
+  <pre>
+# peers.py sophia.m3047
+alive.github.com.
+incoming.telemetry.mozilla.org.
+224.0.0.251
+ec2-44-238-3-246.us-west-2.compute.amazonaws.com.
+
+# peers.py sophia.m3047 +addr
+224.0.0.251
+incoming.telemetry.mozilla.org. [34.120.208.123]
+alive.github.com. [140.82.113.25]
+ec2-44-238-3-246.us-west-2.compute.amazonaws.com. [44.238.3.246]
+
+# peers.py sophia.m3047 +addr +debug
+Looking up sophia.m3047 using server(s) ['10.0.0.230']
+Addresses:
+  10.0.0.224
+Querying: 10\.0\.0\.224\;*\;flow.keys.redis.sophia.m3047.
+Peers:
+  224.0.0.251
+  34.120.208.123
+  140.82.113.25
+  44.238.3.246
+224.0.0.251
+incoming.telemetry.mozilla.org. [34.120.208.123]
+alive.github.com. [140.82.113.25]
+ec2-44-238-3-246.us-west-2.compute.amazonaws.com. [44.238.3.246]
+  </pre>
+
+<p class="footer">(c) 2022 Fred Morris / Fred Morris Consulting, Tacoma WA USA consulting@m3047.net</p>
+</body>
+</html>
