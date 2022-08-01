@@ -1,11 +1,11 @@
 # Peers
 
-Show netflow peers of a host.
+Show netflow peers of a host. Requires `dnspython`.
 
     peers.py <fqdn> [<rkvdns-domain> [<dns-server>] ] {+debug}
     
-No external dependencies, however assumes you've got some DNS resources
-configured.
+No external dependencies other than `dnspython`, however assumes
+you've got some DNS resources configured.
 
 * [rkvdns](https://github.com/m3047/rkvdns)
 * [shodohflo](https://github.com/m3047/shodohflo)
