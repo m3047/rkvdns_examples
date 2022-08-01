@@ -17,7 +17,7 @@
 
 Command line:
 
-    peers.py <fqdn> [<rkvd-domain> [<dns-server>]] {+debug}
+    peers.py <fqdn> [<rkvd-domain> [<dns-server>]] {+debug} {+addr[esses]}
     
 Lists, symbolically when possible, the netflow peers of the specified host.
 
@@ -26,6 +26,8 @@ Lists, symbolically when possible, the netflow peers of the specified host.
     dns-server   This is the (optional) dns server to use for DNS requests.
     debug        If specified (preceded by '+') then intermediate results are
                  printed to STDOUT.
+    addresses    The addresses are printed after the hostnames in all cases, not just
+                 when the reverse lookup fails.
     
 Corresponding entries can be set in an optional `configuration.py`:
 
@@ -99,6 +101,9 @@ SERVER = None
 # NOTE: See pydoc for information about CASE_FOLDING.
 QUERY = "{};*;flow"
 ESCAPED = '.;'
+OUTPUT_FORMAT = '{} [{}]'
+MISSING_NAME = ''
+ADDITIONAL_NAMES = '...'
 
 def lart(msg=None, help='peers fqdn [rkvdns-domain [dns-server]]'):
     if msg:
@@ -133,8 +138,15 @@ def escape(qname):
         qname = qname.replace(c, '\\{}'.format(c))
     return qname
 
-def main( target, rkvdns, resolver, debug ):
-    
+def main( target, rkvdns, resolver, debug, print_addresses ):
+
+    def print_peer(peer, addr):
+        if print_addresses:
+            print(OUTPUT_FORMAT.format(peer or MISSING_NAME, str(addr)))
+        else:
+            print(peer or str(addr))
+        return
+
     if debug:
         print('Looking up {} using server(s) {}'.format(target, resolver.nameservers))
         
@@ -207,24 +219,28 @@ def main( target, rkvdns, resolver, debug ):
         for rset in resp.response.answer:
             if rset.rdtype != rdtype.PTR:
                 continue
-            printed = False
-            for rr in rset:
-                print(rr.to_text())
-                printed = True
-            if not printed:
-                print(str(addr))
-    
+            if len(rset):
+                peer = rset[0].to_text() + (len(rset) > 1 and ADDITIONAL_NAMES or '')
+            else:
+                peer = ''
+            print_peer(peer, addr)
+            
     return
 
 if __name__ == '__main__':
     
     argv = sys.argv
-    if argv[-1].startswith('+'):
-        debug = argv.pop()[1:]
-        if debug != 'debug':
-            lart('Unrecognized option "{}"'.format(debug))
-    else:
-        debug = ''
+
+    debug = False
+    print_addresses = False
+    while argv[-1].startswith('+'):
+        arg = argv.pop()[1:]
+        if   arg == 'debug':
+            debug = True
+        elif arg == 'addresses'[:len(arg)]:
+            print_addresses = True
+        else:
+            lart('Unrecognized option "{}"'.format(arg))
 
     if len(argv) < 2:
         lart('No FQDN')
@@ -255,7 +271,7 @@ if __name__ == '__main__':
         resolver = Resolver(configure=False)
         resolver.nameservers = [argv[3]]
     
-    main(fqdn, rkvdns, resolver, debug)
+    main(fqdn, rkvdns, resolver, debug, print_addresses)
 
 
 
