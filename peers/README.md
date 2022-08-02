@@ -8,7 +8,7 @@ No external dependencies other than `dnspython`, however assumes
 you've got some DNS resources configured.
 
 * [rkvdns](https://github.com/m3047/rkvdns)
-* [shodohflo](https://github.com/m3047/shodohflo)
+* [shodohflo](https://github.com/m3047/shodohflo) just the pcap agent is required
 * [rear_view_rpz](https://github.com/m3047/rear_view_rpz)
 
 In the configured environment _RKVDNS_ is proxying the _ShoDoHFlo_ database, and the
