@@ -86,14 +86,9 @@ The RKVDNS instance is configured with CASE_FOLDING = 'lower'.
 """
 
 import sys
-
-from dns.resolver import Resolver
-import dns.rdatatype as rdtype
-import dns.rdataclass as rdclass
-from dns.exception import DNSException
-import dns.rcode
-
 from ipaddress import ip_address
+import dns.rdatatype as rdtype
+from rkvdns import Resolver
 
 DOMAIN = None
 RKVDNS = None
@@ -153,20 +148,9 @@ def main( target, rkvdns, resolver, debug, print_addresses ):
     # Look up the target.
     addresses = []
     for qtype in ADDRESS_TYPES:
-
-        try:
-            resp = None
-            resp = resolver.query( target + '.', qtype )
-        except DNSException:
-            pass
-
-        if resp is None or resp.response.rcode() != dns.rcode.NOERROR:
-            continue
-        
-        for rset in resp.response.answer:
-            if rset.rdtype not in ADDRESS_TYPES:
-                continue
-            addresses += [ rr.to_text() for rr in rset ]
+        if not resolver.query( target + '.', qtype ).success:
+            continue        
+        addresses += [ rr.to_text() for rr in resolver.result ]
 
     if not addresses:
         try:
@@ -185,19 +169,11 @@ def main( target, rkvdns, resolver, debug, print_addresses ):
         qname = '{}.keys.{}.'.format( escape( QUERY.format(address) ), rkvdns)
         if debug:
             print('Querying: {}'.format(qname))
-        try:
-            resp = None
-            resp = resolver.query( qname, rdtype.TXT)
-        except DNSException:
-            pass
-        
-        if resp is None or resp.response.rcode() != dns.rcode.NOERROR:
+
+        if not resolver.query( qname, rdtype.TXT).success:
             continue
 
-        for rset in resp.response.answer:
-            if rset.rdtype != rdtype.TXT:
-                continue
-            peers += [ rr.to_text().strip('"').split(';')[1] for rr in rset ]
+        peers += [ rr.to_text().strip('"').split(';')[1] for rr in resolver.result ]
 
     if debug:
         print('Peers:\n  {}'.format('\n  '.join(peers)))
@@ -205,26 +181,18 @@ def main( target, rkvdns, resolver, debug, print_addresses ):
     # Do reverse lookups.
     for i in range(len(peers)):
         addr = ip_address(peers[i])
-        try:
-            resp = None
-            resp = resolver.query(addr.reverse_pointer, rdtype.PTR)
-        except DNSException:
-            print_peer('', addr)
-            continue
-        
-        if resp is None or resp.response.rcode() != dns.rcode.NOERROR:
+        if not resolver.query(addr.reverse_pointer, rdtype.PTR).success:
             print_peer('', addr)
             continue
 
-        for rset in resp.response.answer:
-            if rset.rdtype != rdtype.PTR:
-                continue
-            if len(rset):
-                peer = rset[0].to_text() + (len(rset) > 1 and ADDITIONAL_NAMES or '')
-            else:
-                peer = ''
-            print_peer(peer, addr)
-            
+        result = resolver.result
+        if len(result):
+            peer = result[0].to_text() + (len(result) > 1 and ADDITIONAL_NAMES or '')
+        else:
+            peer = ''
+
+        print_peer(peer, addr)
+    
     return
 
 if __name__ == '__main__':
