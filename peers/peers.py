@@ -209,11 +209,11 @@ def main( target, rkvdns, resolver, debug, print_addresses ):
             resp = None
             resp = resolver.query(addr.reverse_pointer, rdtype.PTR)
         except DNSException:
-            print(str(addr))
+            print_peer('', addr)
             continue
         
         if resp is None or resp.response.rcode() != dns.rcode.NOERROR:
-            print(str(addr))
+            print_peer('', addr)
             continue
 
         for rset in resp.response.answer:
