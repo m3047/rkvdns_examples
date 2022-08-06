@@ -1,3 +1,5 @@
+***I have a feeling...*** that this may turn into a menagerie.
+
 # Peers
 
 Show netflow peers of a host. Requires `dnspython`.
@@ -32,3 +34,14 @@ api.github.com.
 content-signature-2.cdn.mozilla.net.
 ```
 
+# hosts
+
+Show hosts on a network.
+
+    hosts.py <network>
+
+```
+# ./hosts.py 10.0.1.0/24
+kindle.m3047.
+UPSTAIRS-ROKU.M3047.
+```
