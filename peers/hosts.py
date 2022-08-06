@@ -56,7 +56,7 @@ for IPv6 in all cases. If it's not working for some case, please let me know.
 """
 
 import sys
-from ipaddress import ip_address, ip_network, IPv4Network, IPv6Network
+from ipaddress import ip_address, ip_network, IPv4Network, IPv6Network, IPv6Address
 import dns.rdatatype as rdtype
 from rkvdns import Resolver
 
@@ -118,12 +118,13 @@ def main( target, rkvdns, resolver, print_addresses ):
             prefixes = ['']
             
     else: # IPv6Network
-        
+
         nybbles = floor(target.prefixlen / 4)
         iterable = target.prefixlen - nybbles * 4
         if iterable:
             nybbles += 1
             iterable = 4 - iterable
+        as_hex = '%032x' % int(target.network_address)        
         base = as_hex[:nybbles]
         if base:
             iter_base = int(base[-1], 16)
