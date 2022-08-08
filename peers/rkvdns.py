@@ -19,13 +19,64 @@ Basic order of operations is to allocate a Resolver and then call query()
 and test success and result.
 """
 
+from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
+from math import floor
+
 import dns.resolver as resolver
 import dns.rdatatype as rdtype
 import dns.rdataclass as rdclass
 from dns.exception import DNSException
 import dns.rcode
 
+def prefixes(network):
+    """Determine ShoDoHFlo network prefixes.
+    
+    Parameters:
+    
+        network         An IPv4Network or IPv6Network object.
+    
+    Addresses are stored in the ShoDoHFlo Redis database in standard stringified
+    form. Examples: "1:2345::1" "1.2.3.4".
+    
+    Under other (normal) circumstances we'd compute a bit mask but that won't
+    work here. In particular, we may need to generate multiple stringified
+    prefixes to capture the entirety of an actual bitmask prefix.
+    """
+    if isinstance(network, IPv4Network):
+
+        octets = floor(network.prefixlen / 8)
+        iterable = network.prefixlen - octets * 8
+        if iterable:
+            octets += 1
+            iterable = 8 - iterable
+        base = str(network.network_address).split('.')[:octets]
+        if   base:
+            iter_base = int(base.pop())
+            all_prefixes = [ '.'.join(base + [ str(iter_base+i) ]) for i in range(2**iterable) ]
+        else:
+            all_prefixes = ['']
+            
+    else: # IPv6Network
+
+        nybbles = floor(network.prefixlen / 4)
+        iterable = network.prefixlen - nybbles * 4
+        if iterable:
+            nybbles += 1
+            iterable = 4 - iterable
+        as_hex = '%032x' % int(network.network_address)        
+        base = as_hex[:nybbles]
+        if base:
+            iter_base = int(base[-1], 16)
+            base = base[:-1]
+            all_prefixes = [ str(IPv6Address(int((base + '%x' % (iter_base+i) + '0'*32)[:32], 16))) for i in range(2**iterable) ]
+        else:
+            all_prefixes = ['']
+        
+    return all_prefixes
+
 class Resolver(object):
+    """A wrapper around dns.resolver.Resolver."""
+    
     ATTRS = {'resolver', 'resp', 'qtype'}
     
     def __init__(self, *args, **kwargs):
@@ -73,6 +124,7 @@ class Resolver(object):
             
     @property
     def result(self):
+        """Returns the first rrset from the answer section which has the correct qtype."""
         for rset in self.resp.response.answer:
             if rset.rdtype != self.qtype:
                 continue

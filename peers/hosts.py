@@ -56,11 +56,9 @@ for IPv6 in all cases. If it's not working for some case, please let me know.
 """
 
 import sys
-from ipaddress import ip_address, ip_network, IPv4Network, IPv6Network, IPv6Address
+from ipaddress import ip_address, ip_network
 import dns.rdatatype as rdtype
-from rkvdns import Resolver
-
-from math import floor
+from rkvdns import Resolver, prefixes
 
 RKVDNS = None
 SERVER = None
@@ -103,39 +101,8 @@ def main( target, rkvdns, resolver, print_addresses ):
         return
         
     # Get hosts.
-    if isinstance(target, IPv4Network):
-
-        octets = floor(target.prefixlen / 8)
-        iterable = target.prefixlen - octets * 8
-        if iterable:
-            octets += 1
-            iterable = 8 - iterable
-        base = str(target.network_address).split('.')[:octets]
-        if   base:
-            iter_base = int(base.pop())
-            prefixes = [ '.'.join(base + [ str(iter_base+i) ]) for i in range(2**iterable) ]
-        else:
-            prefixes = ['']
-            
-    else: # IPv6Network
-
-        nybbles = floor(target.prefixlen / 4)
-        iterable = target.prefixlen - nybbles * 4
-        if iterable:
-            nybbles += 1
-            iterable = 4 - iterable
-        as_hex = '%032x' % int(target.network_address)        
-        base = as_hex[:nybbles]
-        if base:
-            iter_base = int(base[-1], 16)
-            base = base[:-1]
-            prefixes = [ str(IPv6Address(int((base + '%x' % (iter_base+i) + '0'*32)[:32], 16))) for i in range(2**iterable) ]
-        else:
-            prefixes = ['']
-
     hosts = []
-
-    for prefix in prefixes:
+    for prefix in prefixes(target):
         qname = '{}.keys.{}.'.format( escape( QUERY.format(prefix) ), rkvdns)
         if not resolver.query( qname, rdtype.TXT).success:
             continue
