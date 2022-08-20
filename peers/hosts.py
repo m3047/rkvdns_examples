@@ -144,12 +144,6 @@ if __name__ == '__main__':
         network = ip_network(argv[1])
     except Exception as e:
         lart('Invalid network {}: {}'.format(argv[1], e))
-        fqdn = argv[1].strip('.').lower().split('.')
-        if   len(fqdn) < len(DOMAIN):
-            fqdn += DOMAIN
-        elif fqdn[ -1 * len(DOMAIN) : ] != DOMAIN:
-            fqdn += DOMAIN
-        fqdn = '.'.join(fqdn)
         
     resolver = Resolver()
     if SERVER is not None:
