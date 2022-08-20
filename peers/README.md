@@ -1,5 +1,30 @@
 ***I have a feeling...*** that this may turn into a menagerie.
 
+```
+# ./test_data.py 10.0.0.224
+# hosts 10.1.0.0/24
+10.1.0.11
+10.1.0.12
+10.1.0.10
+# peers 10.1.0.10
+www.cnn.com.
+infoblox.com.
+# peers 10.1.0.11
+www.microsoft.com.
+www.cnn.com.
+# peers 10.1.0.12
+www.microsoft.com.
+infoblox.com.
+# pcompare any same 10.1.0.10 10.1.0.0/24
+infoblox.com.
+www.cnn.com.
+# pcompare all same 10.1.0.10 10.1.0.0/24  
+# pcompare any diff 10.1.0.10 10.1.0.0/24       
+# pcompare all diff 10.1.0.10 10.1.0.0/24  
+infoblox.com.
+www.cnn.com.
+```
+
 # Peers
 
 Show netflow peers of a host. Requires `dnspython`.
@@ -45,3 +70,9 @@ Show hosts on a network.
 kindle.m3047.
 UPSTAIRS-ROKU.M3047.
 ```
+
+# compare
+
+Compare peers of an fqdn to those of the network.
+
+    compare.py [any|all] [same|different] <fqdn> [<network> | <fqdn>][...] {+addresses}
