@@ -327,5 +327,8 @@ if __name__ == '__main__':
     if SERVER is not None:
         resolver.nameservers = [SERVER]
     
+    if not RKVDNS:
+        lart('RKVDNS needs to be defined in configuration.py')
+    
     main(fqdn, corpus, scope, mode, RKVDNS, resolver, print_addresses)
 
