@@ -3,7 +3,6 @@
 ### Prerequisites
 
 * netcat
-* dnspython
 * (plain) (python) redis
 
 ### 1) Clone this repo
