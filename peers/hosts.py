@@ -79,7 +79,7 @@ def lart(msg=None, help='hosts {network}'):
 try:
     from configuration import *
 except ImportError:
-    pass
+    lart("Can't find configuration.py. Have you copied configuration-sample.py and configured it?")
 except Exception as e:
     lart('{}: {}'.format(type(e).__name__, e))
 
