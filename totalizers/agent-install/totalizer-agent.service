@@ -1,0 +1,14 @@
+[Unit]
+Description=Totalizer Agent
+Requires=network.service
+After=network.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/share/rkvdns_examples/totalizers/agent.py
+Restart=on-failure
+
+[Install]
+WantedBy=network.service
+
+

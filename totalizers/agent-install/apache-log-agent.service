@@ -1,0 +1,12 @@
+[Unit]
+Description=Apache totalizer log forwarding agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/totalizer-log-agent /var/log/apache2/access_log 127.0.0.1 3430
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
