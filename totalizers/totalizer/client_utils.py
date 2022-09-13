@@ -208,7 +208,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, de
         try:
             resources.append( bucket.to_text().strip('"') )
         except ValueError:
-            logging.warn('Invalid timestamp in result set for {}'.format(qname))
+            logging.warn('Invalid bucket key in result set for {}'.format(qname))
     resources.sort()
     
     totals = DictOfTotals()
