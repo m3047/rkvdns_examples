@@ -35,10 +35,18 @@ rules.define(
         start_ts =      None            # simply defining it enables it
     )
 
-# Web pages.
+# Web pages. Unfortunately nothing is easy. We can't trust user input to be
+# sane.
+def web_page_postproc(matched):
+    value = matched.group(1)
+    if len(value) > 64:
+        value = value[:64]
+    value = value.strip(';').split(';')[0]
+    return dict(matched=value)
 rules.rule(
         prefix =        'web_page',
-        matchex =       r'"GET .*?([^/]+[/]?) HTTP/'
+        matchex =       r'"GET .*?([^/]+[/]?) HTTP/',
+        postproc =      web_page_postproc
     )
 
 # Web clients with statuses.

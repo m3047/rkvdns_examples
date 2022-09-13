@@ -19,6 +19,8 @@ Basic order of operations is to allocate a Resolver and then call query()
 and test success and result.
 """
 
+import logging
+
 import dns.resolver as resolver
 import dns.rdatatype as rdtype
 import dns.rdataclass as rdclass
@@ -98,14 +100,17 @@ class Resolver(object):
     
 class Resources(object):
     
-    def __init__(self, window_floor, delimiter):
+    def __init__(self, window_floor, delimiter, parts):
         self.resources = dict()
         self.window_floor = window_floor
         self.delimiter = delimiter
+        self.parts = parts
         return
     
     def append(self, bucket):
         bucket = bucket.split( self.delimiter )
+        if len(bucket) != self.parts:
+            raise ValueError('Wrong number of parts: {}'.format(bucket))
         resource = tuple( bucket[:-1] )
         if resource not in self.resources:
             self.resources[resource] = []
@@ -132,7 +137,7 @@ class DictOfTotals(dict):
         self[k] += n
         return
     
-def total(match_spec, window, rkvdns, delimiter=';', nameservers=None, debug_print=None):
+def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, debug_print=None):
     """Compute a total over the window for some set of keys.
     
     Returns a dictionary of totals, where the key is the item of interest.
@@ -198,9 +203,12 @@ def total(match_spec, window, rkvdns, delimiter=';', nameservers=None, debug_pri
         debug_print(qname)
     if not resolver.query( qname, rdtype.TXT ).success:
         return dict()
-    resources = Resources(window_floor, delimiter)
+    resources = Resources(window_floor, delimiter, parts)
     for bucket in resolver.result:
-        resources.append( bucket.to_text().strip('"') )
+        try:
+            resources.append( bucket.to_text().strip('"') )
+        except ValueError:
+            logging.warn('Invalid timestamp in result set for {}'.format(qname))
     resources.sort()
     
     totals = DictOfTotals()
@@ -236,5 +244,5 @@ def total(match_spec, window, rkvdns, delimiter=';', nameservers=None, debug_pri
         totals.add( resource[item_of_interest], int(value * portion) )
     
     return totals
-    
-    
+
+
