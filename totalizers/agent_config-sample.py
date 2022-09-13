@@ -39,9 +39,20 @@ rules.define(
 # sane.
 def web_page_postproc(matched):
     value = matched.group(1)
+
+    # There is a hard limit on DNS keys of 255 bytes, we need to fit in that
+    # while also including the other parts of the key.
     if len(value) > 64:
         value = value[:64]
+
+    # We're using ";" as our delimiter.
     value = value.strip(';').split(';')[0]
+
+    # DNS is case-insensitive. We're running the RKVDNS instance serving this
+    # Redis database in lowercase mode. There is a per-character escaping mode,
+    # but this is good enough for our purposes.
+    value = value.lower()
+
     return dict(matched=value)
 rules.rule(
         prefix =        'web_page',
