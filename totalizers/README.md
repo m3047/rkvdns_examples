@@ -59,7 +59,7 @@ Python example:
 
 ```
 >>> from totalizer.client_utils import total
->>> total(['web_client',None], 3600, 'redis.sophia.m3047')
+>>> total(['web_client',None], 4, 3600, 'redis.sophia.m3047')
 {'10.0.0.224,200': 7, '10.0.0.224,304': 2}
 ```
 
