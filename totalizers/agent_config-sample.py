@@ -33,6 +33,10 @@ rules.define(
         ttl =           86400,          # for the Redis key
         buckets =       4,              # buckets should never be zero, but can be undefined
         start_ts =      None            # simply defining it enables it
+        # If no postprocessor is provided, the first capture pattern is returned.
+        # If you're a practitioner of the black arts, technically you can put other
+        # keys in the dictionary and then reference them in the keypattern.
+        # postproc =    lambda matched: dict(matched=matched.group(1))
     )
 
 # Web pages. Unfortunately nothing is easy. We can't trust user input to be
