@@ -54,13 +54,50 @@ If you needed something more featureful and complicated, you could use for examp
 
 __Further information and examples will follow.__
 
-For now, take a look at `totalizer.client_utils`, in particular `total()`. Here's an interactive
+Take a look at `totalizer.client_utils`, in particular `total()`. Here's an interactive
 Python example:
 
 ```
 >>> from totalizer.client_utils import total
 >>> total(['web_client',None], 4, 3600, 'redis.sophia.m3047')
 {'10.0.0.224,200': 7, '10.0.0.224,304': 2}
+```
+
+Two command line clients are provided for demonstration purposes:
+
+```
+# pages 86400 +count +trend | sort
+a                               1   0.00
+about.php                       1   0.00
+ads.txt                         1   0.00
+app.d7b0caa9.js                 2   2.00
+auth_simple.php                 1   0.00
+c/                              1   4.00
+config                          2   2.00
+dev/                            1   0.00
+ecp                             2   2.00
+.env                            2   0.00
+favicon.ico                    12   1.67
+file.ext                        1   0.00
+health                          1   0.00
+humans.txt                      1   0.00
+...
+# clients 86400 +count +trend | sort     
+10.0.0.118          200     18   0.67
+100.24.29.155       200      1   0.00
+101.0.73.142        404      1   0.00
+109.248.6.38        200      2   2.00
+110.235.254.248     200      1   0.00
+112.46.68.26        400      1   4.00
+117.215.147.106     200      1   0.00
+118.126.82.157      404      2   2.00
+120.78.170.21       400      1   0.00
+124.156.223.97      200      1   0.00
+137.175.42.66       200      1   0.00
+138.246.253.24      200      1   0.00
+139.198.41.148      200      1   0.00
+149.18.50.22        404      1   0.00
+...
 ```
 
 ## The Administrivia
