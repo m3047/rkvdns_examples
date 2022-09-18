@@ -60,7 +60,7 @@ def web_page_postproc(matched):
     return dict(matched=value)
 rules.rule(
         prefix =        'web_page',
-        matchex =       r'"GET .*?([^/]+[/]?) HTTP/',
+        matchex =       r'"(?:GET|POST) .*?([^/]+[/]?) HTTP/',
         postproc =      web_page_postproc
     )
 
@@ -71,7 +71,7 @@ def web_client_postproc(matched):
         )
 rules.rule(
         prefix =        'web_client',
-        matchex =       r'^([^ ]+).*?"GET .*? HTTP/[^"]*" (\d\d\d)',
+        matchex =       r'^([^ ]+).*?"(?:GET|POST) .*? HTTP/[^"]*" (\d\d\d)',
         postproc=       web_client_postproc
     )
 
