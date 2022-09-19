@@ -189,7 +189,7 @@ class WatchRule(object):
     
     def new_ts(self):
         self.start_ts = time()
-        self.substitutions['start_ts'] = str(int(time()))
+        self.substitutions['start_ts'] = str(int(self.start_ts))
         return
 
     def key(self, **updates):
