@@ -72,7 +72,7 @@ class TestWatchRule(unittest.TestCase):
         self.rules.define(start_ts=None)
         self.rules.rule(keypattern='<foo>;<bar>;<start_ts>')
         self.assertEqual(self.rules.rules[0].key(),
-                        'Foo;BAAAR;{}'.format(strftime( agent_utils.TS_FORMAT, gmtime(self.rules.rules[0].start_ts)))
+                        'Foo;BAAAR;{}'.format(int(self.rules.rules[0].start_ts))
                         )
         return
         
