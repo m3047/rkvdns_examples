@@ -31,6 +31,7 @@ from time import time
 
 REDIS_WILDCARD = '*'
 ESCAPED = { c for c in '.;' }
+DEFAULT_DELIMITER = ';'
     
 def escape(qname):
     """Escape . and ;"""
@@ -137,7 +138,7 @@ class DictOfTotals(dict):
         self[k] += n
         return
     
-def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, debug_print=None):
+def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, nameservers=None, debug_print=None):
     """Compute a total over the window for some set of keys.
     
     Returns a dictionary of totals, where the key is the item of interest.
@@ -145,7 +146,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, de
     Pass something like print or logging.info as debug_print to get logging of queries,
     it can be useful to wrap your head around the DNS traffic.
     
-    Use None to identify the value to aggregate.
+    Use None to identify the values to aggregate.
     
     You need to coordinate the match_spec with what is being written to Redis.
     For instance you might write keys looking something like this to track web page
@@ -170,7 +171,15 @@ def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, de
     
       page;*
       page;*;athena;*
+    
+    You could also have multiple values being aggregated on:
+    
+      conn;<proto>;<port>;<server>;<timestamp>
       
+    You would specify that both proto and port should be aggregated on:
+    
+      [ 'conn', None, None, 'athena' ]
+    
     The delimiter defaults to ";".
     
     In any case totals will be calculated for all of the page names and returned
@@ -186,13 +195,13 @@ def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, de
         resolver = Resolver()
     
     match_spec = match_spec.copy()
-    item_of_interest = None
+    item_of_interest = []
     for i in range(len(match_spec)):
         if match_spec[i] is None:
             match_spec[i] = REDIS_WILDCARD
-            item_of_interest = i
-    if item_of_interest is None:
-        raise SpecError('None value (item of interest) not found in match_spec.')
+            item_of_interest.append(i)
+    if not item_of_interest:
+        raise SpecError('No item of interest found in match_spec.')
     
     if not match_spec[-1].endswith(REDIS_WILDCARD):
         match_spec.append(REDIS_WILDCARD)
@@ -207,8 +216,8 @@ def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, de
     for bucket in resolver.result:
         try:
             resources.append( bucket.to_text().strip('"') )
-        except ValueError:
-            logging.warn('Invalid bucket key in result set for {}'.format(qname))
+        except ValueError as e:
+            logging.warn('Invalid bucket key in result set for {}: {}'.format(qname, e))
     resources.sort()
     
     totals = DictOfTotals()
@@ -230,7 +239,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, de
         if debug_print:
             debug_print('...{}'.format(value))
         if bucket >= window_floor:
-            totals.add( resource[item_of_interest], value )
+            totals.add( delimiter.join( resource[item] for item in item_of_interest ), value )
             last_bucket = bucket
             continue
         
@@ -241,7 +250,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=';', nameservers=None, de
         # Our presumption at this point is that last_bucket is within the window, but the
         # bucket start time is outside of it.
         portion = (last_bucket - window_floor) / (last_bucket - bucket)
-        totals.add( resource[item_of_interest], int(value * portion) )
+        totals.add( delimiter.join( resource[item] for item in item_of_interest ), int(value * portion) )
     
     return totals
 
