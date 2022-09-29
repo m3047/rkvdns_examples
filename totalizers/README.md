@@ -113,3 +113,16 @@ This means that you should choose the RKVDNS TTLs with care. In the RKVDNS confi
 * `DEFAULT_TTL` will be used for the Redis (wildcarded) `keys` query. I set this to 30 seconds so that new values show up fairly quickly.
 * `MAX_TTL` determines how often the data for individual values is refreshed. I set this to 5 minutes.
 
+#### Testing Agent Configurations
+
+I assume you'll make your own configs, and testing should be easy... I hope you agree! If you have a configuration you'd
+like to test and it's named `test_config.py` then you can run:
+
+```
+agent test_config +test
+```
+
+and instead of writing to Redis it will write the keys to STDOUT.
+
+**NOTE:** If you're running this on the same node where for example your live agent is capturing on port 3430,
+you need to specify a different port to listen on in your `test_config`.
