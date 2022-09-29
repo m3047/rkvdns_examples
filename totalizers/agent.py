@@ -15,6 +15,15 @@
 
 """Aggregate Log Lines to Redis Keys.
 
+    agent {<config-name>} {+test}
+    
+Parameters:
+
+    config-name The name of an alternate config module (just the module name,
+                omit .py). Default is agent_config
+    test        If supplied, then Redis is not written to and the key which would
+                have been written is instead written to stdout.
+
 This is a beast! You define rules (see agent_config.py) and based on those
 it:
 
@@ -50,6 +59,8 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, CancelledError
 import redis
 
+import importlib
+
 # Set this to a print func to enable it.
 PRINT_COROUTINE_ENTRY_EXIT = None
 
@@ -57,27 +68,32 @@ PRINT_COROUTINE_ENTRY_EXIT = None
 STATISTICS_PRINTER = logging.info
 
 LOG_LEVEL = None
-if __name__ == '__main__':
-    from agent_config import REDIS_SERVER, REDIS_CONNECTIONS, REDIS_QUEUE_MAX, STATS, LOG_LEVEL, rules
-    
-if LOG_LEVEL is not None:
-    logging.basicConfig(level=LOG_LEVEL)
     
 from totalizer.statistics import StatisticsFactory, StatisticsCollector, UndeterminedStatisticsCollector
+
+def lart(msg=None, help='agent {config} {+testing}'):
+    if msg:
+        print(msg, file=sys.stderr)
+    if help:
+        print(help, file=sys.stderr)
+    sys.exit(1)
 
 class Controller(object):
 
     CONNECT_TIMEOUT = 5 # for Redis
     
-    def __init__(self, redis_server, redis_conns, max_queue, event_loop):
+    def __init__(self, redis_server, redis_conns, max_queue, event_loop, testing=False):
         self.max_queue = max_queue
         self.event_loop = event_loop
         self.queue = asyncio.Queue(max_queue, loop=event_loop)
         self.semaphore = asyncio.Semaphore( redis_conns+1, loop=event_loop )
         self.pool = ThreadPoolExecutor(redis_conns)
-        self.redis = redis.client.Redis(redis_server, decode_responses=False,
-                                        socket_connect_timeout=self.CONNECT_TIMEOUT
-                                       )
+        if testing:
+            self.redis = None
+        else:
+            self.redis = redis.client.Redis(redis_server, decode_responses=False,
+                                            socket_connect_timeout=self.CONNECT_TIMEOUT
+                                        )
         self.queue_processor = event_loop.create_task(self.process_queue())
         return
 
@@ -110,15 +126,19 @@ class Controller(object):
     def redis_update(self, key, ttl, redis_timer):
         if PRINT_COROUTINE_ENTRY_EXIT:
             PRINT_COROUTINE_ENTRY_EXIT('> redis_update')
+            
+        if self.redis is None:
+            print('>> {} <<'.format(key))
+        else:
+            try:
+                exc = result = None
+                self.redis.incr( key )
+                self.redis.expire( key, ttl )
+            except redis.exceptions.RedisError as e:
+                logging.error('Redis error: {} {}'.format(type(e).__name__, e))
+            except Exception as e:
+                logging.error('{}:\n{}'.format(e, traceback.format_exc()))
 
-        try:
-            exc = result = None
-            self.redis.incr( key )
-            self.redis.expire( key, ttl )
-        except redis.exceptions.RedisError as e:
-            logging.error('Redis error: {} {}'.format(type(e).__name__, e))
-        except Exception as e:
-            logging.error('{}:\n{}'.format(e, traceback.format_exc()))
         asyncio.run_coroutine_threadsafe( self.finish(redis_timer), self.event_loop )
         
         if PRINT_COROUTINE_ENTRY_EXIT:
@@ -216,7 +236,7 @@ async def close_tasks(tasks):
         pass
     return
 
-def main():
+def main(testing=False):
 
     event_loop = asyncio.get_event_loop()
 
@@ -228,7 +248,7 @@ def main():
     else:
         statistics = datagram_stats = None
 
-    controller = Controller(REDIS_SERVER, REDIS_CONNECTIONS, REDIS_QUEUE_MAX, event_loop)
+    controller = Controller(REDIS_SERVER, REDIS_CONNECTIONS, REDIS_QUEUE_MAX, event_loop, testing)
     transports = []
     for binding in rules.port_rules.keys():
         address, port = binding.split(':')
@@ -268,4 +288,30 @@ def main():
     event_loop.close()
 
 if __name__ == "__main__":
-    main()
+    argv = sys.argv.copy()
+    
+    testing = False
+    while len(argv) > 1 and argv[-1].startswith('+'):
+        arg = argv.pop()[1:]
+        if   arg == 'testing'[:len(arg)]:
+            testing = True
+    
+    if len(argv) > 2:
+        lart('Too many arguments')
+    
+    if len(argv) > 1:
+        config_name = argv[1]
+    else:
+        config_name = 'agent_config'
+
+    try:
+        config = importlib.import_module(config_name)
+        for sym in ('REDIS_SERVER', 'REDIS_CONNECTIONS', 'REDIS_QUEUE_MAX', 'STATS', 'LOG_LEVEL', 'rules'):
+            globals()[sym] = getattr(config, sym)
+    except Exception as e:
+        lart('Config load for {} failed: {}'.format(config_name, e))
+    
+    if LOG_LEVEL is not None:
+        logging.basicConfig(level=LOG_LEVEL)
+    
+    main(testing)

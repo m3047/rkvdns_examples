@@ -5,6 +5,20 @@ such as what port(s) to listen on and what to listen for, are in a DSL
 which is built on top of Python. I don't know why I'm apologizing for this,
 how many DAGs have I written in not only Python, but Java?
 
+Testing Configurations
+----------------------
+
+You may want to create your own rules. =) It would be nice to have a
+straightforward way to test them!
+
+You can pass an alternate config module name and "+test":
+
+    agent test +test
+    
+where the actual module name is test.py.
+
+Instead of incrementing the key in Redis, this writes the key to stdout.
+
 FOR FURTHER INFORMATION: See the pydoc for totalizer.agent_utils.WatchRule
 """
 
