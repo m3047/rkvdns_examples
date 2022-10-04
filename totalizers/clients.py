@@ -45,6 +45,7 @@ from totalizer.client_utils import total
 RKVDNS = None
 DNS_SERVER = None
 TREND_WINDOW = 0.25
+MAX_TREND = 9.99
 
 def lart(msg=None, help='clients window [server] [rkvdns-domain [dns-server]]'):
     if msg:
@@ -64,7 +65,7 @@ if RKVDNS is not None:
     RKVDNS = RKVDNS.strip('.').lower()
 else:
     RKVDNS = None
-    
+
 def main( window, server, rkvdns, dns_server, print_count, print_trend ):
 
     def print_item(item, width, count, trend=None):
@@ -77,10 +78,11 @@ def main( window, server, rkvdns, dns_server, print_count, print_trend ):
         if print_trend:
             fmt += ' {:>6.2f}'
             base = count * TREND_WINDOW
-            if base == 0 or trend >= 10:
-                args.append(9.99)
+            if base == 0:
+                args.append(MAX_TREND)
             else:
-                args.append(trend / base )
+                trend /= base
+                args.append( trend > MAX_TREND and MAX_TREND or trend )
         print(fmt.format(*args, width=width))
         return
     
