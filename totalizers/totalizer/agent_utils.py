@@ -98,14 +98,19 @@ class WatchRule(object):
         buckets     Number of buckets. The TTL will be divided into the buckets.
         source      A (relatively arbitrary) source identifier, e.g. hostname.
     
-    All of these can be defaulted.
+    All of these can be defaulted or redefined by using rules.define(). See the
+    sample configuration.
     
     The following are generated internally:
     
         start_ts    If defined (set it to None) then a starting timestamp is tracked
                     for buckets.
         matched     The captured part of matchex.
-        
+    
+    The following is defaulted internally:
+    
+        postproc    A python function which returns a dictionary of substitutions.
+
     All of the above can be substituted into the keypattern. (Why would you want to
     substitute keypattern into the keypattern? Never mind, I don't wanna know!)
     
@@ -145,7 +150,24 @@ class WatchRule(object):
     They can be optional, and the optional part can contain literals:
     
         {;<start_ts>}
+        
+    postprocs
+    ---------
+
+    The postproc is supplied with the match object generated after a successful scan
+    for the matchex. The default postproc is essentially a dict with the one key
+    "matched" representing the single match expected to be produced by the matchex:
     
+        lambda matched: dict(matched=matched.group(1))
+        
+    If defined it can return None, signaling that the match should be ignored.
+    
+    postprocs are useful:
+    
+      * if the matchex returns multiple match groups
+      * if the matched value requires additional processing for safety, brevity, etc.
+      * if there are cases which the matchex produces which should be ignored
+     
     """
     
     def __init__(self, defaults, *args, **kwargs):
@@ -314,8 +336,8 @@ class WatchList(object):
                 kwargs = rule.substitutions['postproc'](matched)
             else:
                 kwargs = dict(matched=matched.group(1))
+            if kwargs is None:
+                continue
             matches.append( (rule.key(**kwargs), rule.substitutions['ttl']) )
         
         return matches
-
-
