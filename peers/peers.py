@@ -164,7 +164,7 @@ def main( target, rkvdns, resolver, debug, print_addresses ):
         print('Addresses:\n  {}'.format('\n  '.join(addresses)))
         
     # Get peers.
-    peers = []
+    peers = set()
     for address in addresses:
         qname = '{}.keys.{}.'.format( escape( QUERY.format(address) ), rkvdns)
         if debug:
@@ -173,25 +173,25 @@ def main( target, rkvdns, resolver, debug, print_addresses ):
         if not resolver.query( qname, rdtype.TXT).success:
             continue
 
-        peers += [ rr.to_text().strip('"').split(';')[1] for rr in resolver.result ]
+        peers |= set(( rr.to_text().strip('"').split(';')[1] for rr in resolver.result ))
 
     if debug:
         print('Peers:\n  {}'.format('\n  '.join(peers)))
 
     # Do reverse lookups.
-    for i in range(len(peers)):
-        addr = ip_address(peers[i])
+    for addr in peers:
+        addr = ip_address(addr)
         if not resolver.query(addr.reverse_pointer, rdtype.PTR).success:
             print_peer('', addr)
             continue
 
         result = resolver.result
         if len(result):
-            peer = result[0].to_text() + (len(result) > 1 and ADDITIONAL_NAMES or '')
+            peer_name = result[0].to_text() + (len(result) > 1 and ADDITIONAL_NAMES or '')
         else:
-            peer = ''
+            peer_name = ''
 
-        print_peer(peer, addr)
+        print_peer(peer_name, addr)
     
     return
 
