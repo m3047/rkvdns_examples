@@ -52,6 +52,10 @@ is determined by REDIS_QUEUE_MAX. When the queue is full incoming messages (log 
 via UDP) are dropped.
 """
 
+import sysconfig
+
+PYTHON_IS_311 = int( sysconfig.get_python_version().split('.')[1] ) >= 11
+
 import sys
 import logging
 import asyncio
@@ -60,6 +64,11 @@ from concurrent.futures import ThreadPoolExecutor, CancelledError
 import redis
 
 import importlib
+
+if PYTHON_IS_311:
+    from asyncio import CancelledError
+else:
+    from concurrent.futures import CancelledError
 
 # Set this to a print func to enable it.
 PRINT_COROUTINE_ENTRY_EXIT = None
@@ -85,8 +94,8 @@ class Controller(object):
     def __init__(self, redis_server, redis_conns, max_queue, event_loop, testing=False):
         self.max_queue = max_queue
         self.event_loop = event_loop
-        self.queue = asyncio.Queue(max_queue, loop=event_loop)
-        self.semaphore = asyncio.Semaphore( redis_conns+1, loop=event_loop )
+        self.queue = asyncio.Queue(max_queue)
+        self.semaphore = asyncio.Semaphore( redis_conns+1 )
         self.pool = ThreadPoolExecutor(redis_conns)
         if testing:
             self.redis = None
@@ -238,11 +247,12 @@ async def close_tasks(tasks):
 
 def main(testing=False):
 
-    event_loop = asyncio.get_event_loop()
+    event_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop( event_loop )
 
     if STATS:
         statistics = StatisticsFactory()
-        asyncio.run_coroutine_threadsafe(statistics_report(statistics, STATS), event_loop)
+        event_loop.create_task(statistics_report(statistics, STATS))
         datagram_stats = statistics.Collector( ('dropped', 'processed'), using=UndeterminedStatisticsCollector)
         redis_stats = statistics.Collector('redis')
     else:
@@ -281,7 +291,11 @@ def main(testing=False):
     for transport in transports:
         transport.close()
 
-    tasks = asyncio.Task.all_tasks(event_loop)
+    if PYTHON_IS_311:
+        tasks = asyncio.all_tasks(event_loop)
+    else:
+        tasks = asyncio.Task.all_tasks(event_loop)
+
     if tasks:
         event_loop.run_until_complete(close_tasks(tasks))
 
