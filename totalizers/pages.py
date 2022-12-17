@@ -65,6 +65,8 @@ if RKVDNS is not None:
     RKVDNS = RKVDNS.strip('.').lower()
 else:
     RKVDNS = None
+
+NUMBER_OF_PARTS = 4
     
 def main( window, server, rkvdns, dns_server, print_count, print_trend ):
 
@@ -92,9 +94,9 @@ def main( window, server, rkvdns, dns_server, print_count, print_trend ):
     kwargs = dict()
     if dns_server:
         kwargs['nameservers'] = dns_server
-    counts = total(search_spec, 4, window, rkvdns, **kwargs)
+    counts = total(search_spec, NUMBER_OF_PARTS, window, rkvdns, **kwargs)
     if print_trend:
-        recent_counts = total(search_spec, 4, int(window * TREND_WINDOW), rkvdns, **kwargs)
+        recent_counts = total(search_spec, NUMBER_OF_PARTS, int(window * TREND_WINDOW), rkvdns, **kwargs)
         
     max_k = max(len(k) for k in counts.keys())
     
