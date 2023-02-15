@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2020-2022 by Fred Morris Tacoma WA
+# Copyright (c) 2020-2023 by Fred Morris Tacoma WA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -173,6 +173,7 @@ class UDPListener(asyncio.DatagramProtocol):
     
     def connection_made(self, transport):
         self.transport = transport
+        self.requests = set()
         return
     
     @staticmethod
@@ -186,13 +187,14 @@ class UDPListener(asyncio.DatagramProtocol):
             converted += [ ord('\\'), ord('x') ] + [ x for x in '{:02x}'.format(c).encode() ]
         return bytes(converted).decode()
     
-    async def handle_request(self, request, datagram_timer):
+    async def handle_request(self, request, datagram_timer, promise):
         if PRINT_COROUTINE_ENTRY_EXIT:
             PRINT_COROUTINE_ENTRY_EXIT('> handle_request')
         if self.controller.queue_full():
             if PRINT_COROUTINE_ENTRY_EXIT:
                 PRINT_COROUTINE_ENTRY_EXIT('< handle_request')
             datagram_timer.stop('dropped')
+            self.requests.remove(promise[0])
             return
         
         for line in request.split(b'\n'):
@@ -202,13 +204,19 @@ class UDPListener(asyncio.DatagramProtocol):
                 await self.controller.submit( *args )
 
         datagram_timer.stop('processed')
+        self.requests.remove(promise[0])
 
         if PRINT_COROUTINE_ENTRY_EXIT:
             PRINT_COROUTINE_ENTRY_EXIT('< handle_request')
         return
 
     def datagram_received(self, request, addr):
-        self.event_loop.create_task(self.handle_request( request, self.datagram_stats.start_timer() ))
+        promise = []
+        task = self.event_loop.create_task(
+                    self.handle_request( request, self.datagram_stats.start_timer(), promise )
+            )
+        promise.append(task)
+        self.requests.add(task)
         return
 
 def format_statistics(stat):
