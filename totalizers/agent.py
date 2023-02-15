@@ -260,7 +260,7 @@ def main(testing=False):
 
     if STATS:
         statistics = StatisticsFactory()
-        event_loop.create_task(statistics_report(statistics, STATS))
+        stats_routine = event_loop.create_task(statistics_report(statistics, STATS))
         datagram_stats = statistics.Collector( ('dropped', 'processed'), using=UndeterminedStatisticsCollector)
         redis_stats = statistics.Collector('redis')
     else:
