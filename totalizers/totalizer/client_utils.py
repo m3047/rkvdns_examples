@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2022 by Fred Morris Tacoma WA
+# Copyright (c) 2022-2023 by Fred Morris Tacoma WA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -182,6 +182,42 @@ class DictOfTotals(dict):
         self[k] += n
         return
     
+class FieldHandlerType(object):
+    """Enhanced field handling for total().
+    
+    Subclasses of FieldHandlerType are expressed as singletons which can be utilized
+    with similar semantics to None, using "is" in the total() match_spec.
+    
+    Refer to the documentation for total() match_spec.
+    """
+    pass
+
+class BreakType(FieldHandlerType):
+    """The field should be treated as a break for grouping purposes.
+    
+    This is equivalent to what specifying None accomplishes. The field is used
+    as a group/break.
+    
+    The singleton created with this type is Break.
+    """
+    pass
+
+Break = BreakType()
+
+class IgnoreType(FieldHandlerType):
+    """The field should be ignored for grouping purposes.
+    
+    Allows inner fields to be ignored (not supported by None semantics).
+    
+    The singleton created with this type is Ignore.
+    """
+    pass
+
+Ignore = IgnoreType()
+
+MATCH_SPEC_HANDLERS = { None, Break, Ignore }
+MATCH_SPEC_BREAK = { None, Break }
+    
 def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, nameservers=None, debug_print=None):
     """Compute a total over the window for some set of keys.
     
@@ -228,6 +264,31 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     
     In any case totals will be calculated for all of the page names and returned
     as a list of (<page-name>,<total>) tuples.
+    
+    FieldHandlerType Semantics
+    --------------------------
+    
+    When constructing the match_spec, None essentially identifies one or more
+    fields which should be utilized as breaks for aggregation. This does not
+    provide a way to identify internal fields which should not be utilized as
+    breaks when their value changes.
+    
+    For instance in the previous example
+    
+        [ 'conn', None, None, 'athena' ]
+
+    the break is protocol + port. If you want to break on just one or the other
+    of those (while still focusing on a single server) there's no way to do that.
+    
+    FieldHandlerType semantics address this with the two singletons Ignore and
+    Break. For instance the following breaks only on port:
+    
+        [ 'conn', Ignore, Break, 'athena' ]
+        
+    The available FieldHandlerType singletons (exportable from this module) are:
+    
+        Ignore  Don't use this field as a break.
+        Break   Use this field as a break (equivalent to None)
     """
     now = int(time())
     window_floor = now - window
@@ -241,9 +302,11 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     match_spec = match_spec.copy()
     item_of_interest = []
     for i in range(len(match_spec)):
-        if match_spec[i] is None:
+        if match_spec[i] in MATCH_SPEC_HANDLERS:
+            if match_spec[i] in MATCH_SPEC_BREAK:
+                # Ignore items are not added here.
+                item_of_interest.append(i)
             match_spec[i] = REDIS_WILDCARD
-            item_of_interest.append(i)
     if not item_of_interest:
         raise SpecError('No item of interest found in match_spec.')
     
