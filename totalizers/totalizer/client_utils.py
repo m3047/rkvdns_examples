@@ -28,6 +28,7 @@ from dns.exception import DNSException
 import dns.rcode
 
 from time import time
+from threading import Lock
 
 REDIS_WILDCARD = '*'
 ESCAPED = { c for c in '.;' }
@@ -91,7 +92,7 @@ class Resolver(object):
             self.resp = self.resolver.query(qname, qtype)
         except DNSException:
             pass
-        
+
         return self
     
     @property
@@ -141,7 +142,54 @@ class Resolver(object):
                 continue
             return rset
         return []
+    
+class ResolverPool(object):
+    """This is a self-managed pool of Resolver instances.
+    
+    The notion here is to be threadsafe. The instantiation arguments follow those
+    of Resolver:
+    
+    * Any arguments to __init__() are passed to resolver.Resolver()
+    * Any attributes set are applied as attributes on the newly created
+      resolver.Resolver instances.
+    """
+    
+    ATTRS = { 'args', 'kwargs', 'attrs', 'free_list', 'lock' }
+    
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.attrs = {}
+        self.free_list = set()
+        self.lock = Lock()
+        return
+    
+    def __setattr__(self, k, v):
+        if k in self.ATTRS:
+            object.__setattr__(self, k, v)
+        else:
+            self.attrs[k] = v
+        return
+    
+    def allocate(self):
+        """Allocate a Resolver from the pool.
         
+        A new Resolver is allocated if none are free.
+        """
+        with self.lock:
+            if not self.free_list:
+                resolver = Resolver(*self.args,**self.kwargs)
+                for attr,v in self.attrs.items():
+                    setattr( resolver, attr, v )
+                self.free_list.add( resolver )
+            resolver = self.free_list.pop()
+        return resolver
+    
+    def free(self, resolver):
+        """Allow a Resolver instance to be returned to the pool."""
+        with self.lock:
+            self.free_list.add( resolver )
+        return
     
 class Resources(object):
     
