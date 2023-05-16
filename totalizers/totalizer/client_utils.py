@@ -28,7 +28,7 @@ from dns.exception import DNSException
 import dns.rcode
 
 from time import time
-from threading import Lock
+import threading
 
 REDIS_WILDCARD = '*'
 ESCAPED = { c for c in '.;' }
@@ -152,16 +152,30 @@ class ResolverPool(object):
     * Any arguments to __init__() are passed to resolver.Resolver()
     * Any attributes set are applied as attributes on the newly created
       resolver.Resolver instances.
+      
+    This object is Context Manager aware and supports the with statement as an
+    alternative to calling allocate() / free():
+    
+        with resolver_pool:
+          resolver_pool.query(...)
+          
+    instead of:
+    
+        resolver = resolver_pool.allocate()
+        resolver.query(...)
+        resolver.free()
+    
     """
     
-    ATTRS = { 'args', 'kwargs', 'attrs', 'free_list', 'lock' }
+    ATTRS = { 'args', 'kwargs', 'attrs', 'free_list', 'lock', 'contexts' }
     
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
         self.attrs = {}
         self.free_list = set()
-        self.lock = Lock()
+        self.lock = threading.Lock()
+        self.contexts = {}
         return
     
     def __setattr__(self, k, v):
@@ -170,6 +184,19 @@ class ResolverPool(object):
         else:
             self.attrs[k] = v
         return
+    
+    def __enter__(self):
+        resolver = self.allocate()
+        with self.lock:
+            self.contexts[threading.get_ident()] = resolver
+        return self
+    
+    def __exit__(self, *exc):
+        ident = threading.get_ident()
+        self.free(self.contexts[ident])
+        with self.lock:
+            del self.contexts[ident]
+        return False
     
     def allocate(self):
         """Allocate a Resolver from the pool.
@@ -190,6 +217,29 @@ class ResolverPool(object):
         with self.lock:
             self.free_list.add( resolver )
         return
+    
+    #
+    # Wrappers for the actual Resolver methods / properties.
+    #
+
+    def query(self, qname, qtype):
+        """Wrapper for the Resolver method."""
+        return self.contexts[threading.get_ident()].query( qname, qtype )
+    
+    @property
+    def success(self):
+        """Wrapper for the Resolver property."""
+        return self.contexts[threading.get_ident()].success
+
+    @property
+    def result(self):
+        """Wrapper for the Resolver property."""
+        return self.contexts[threading.get_ident()].result
+
+    @property
+    def any_txt(self):
+        """Wrapper for the Resolver property."""
+        return self.contexts[threading.get_ident()].any_txt
     
 class Resources(object):
     
