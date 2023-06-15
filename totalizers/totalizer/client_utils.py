@@ -242,7 +242,21 @@ class ResolverPool(object):
         return self.contexts[threading.get_ident()].any_txt
     
 class Resources(object):
+    """A thing which preprocesses totalizer buckets.
     
+    total() makes a KEYS request for a tranche of totalizer buckets which
+    are distinguished by timestamps as the rightmost part.
+    
+    append() creates lists of the timestamp values for each distinguishing
+    key. sort() then sorts the timestamp values (in descending order) for each
+    distinguishing key.
+    
+    When buckets() is called on the (now sorted) lists of timestamp values
+    for each key, it stops yielding timestamp values when the timestamp of the
+    previously yielded bucket was below the window floor. total() does some
+    additional work to pro-rate the bucket which was opened earlier than the
+    window floor.
+    """
     def __init__(self, window_floor, delimiter, parts):
         self.resources = dict()
         self.window_floor = window_floor
@@ -319,7 +333,22 @@ MATCH_SPEC_BREAK = { None, Break }
 def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, nameservers=None, debug_print=None):
     """Compute a total over the window for some set of keys.
     
-    Returns a dictionary of totals, where the key is the item of interest.
+    Parameters:
+    
+      match_spec        The matching / break spec, see below.
+      parts             The expected number of parts in the key after splitting with the
+                        delimiter.
+      window            The number of seconds in the aggregation window. Note that the
+                        maximum aggregation window is bounded by the number of buckets
+                        and the bucket period being used for aggregation.
+      rkvdns            The RKVDNS domain name or an FQDN pointing to a fanout of RKVDNS
+                        domains.
+      delimiter         Keys are comprised of delimited parts. This is the delimiter.
+      nameservers       A way to explicitly call out the nameservers to use.
+      debug_print       A print function for debug output.
+      
+    Returns a dictionary of totals (DictOfTotals), where the key is the item of interest
+    or "break" to aggregate.
     
     Pass something like print or logging.info as debug_print to get logging of queries,
     it can be useful to wrap your head around the DNS traffic.
@@ -428,6 +457,9 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     totals = DictOfTotals()
     
     last_resource = ''
+    # Iterates over distinguishing keys (resource) and timestamps within those in
+    # descending order (bucket). The count (value) for each complete key is fetched
+    # and the (pro-rated if necessary) value is summed into the item_of_interest.
     for resource, bucket in resources.buckets():
 
         if resource != last_resource:
