@@ -100,6 +100,35 @@ humans.txt                      1   0.00
 ...
 ```
 
+## Fanout
+
+One example is provided of `fanout`: the ability to send a query to multiple RKVDNS instances and aggregate the data from all of them.
+
+* `clients_fanout.py` The fanout version of `clients.py`.
+* `totalizer.fanout.BaseName` The fanout replacement for `totalizer.cleint_utils.total`
+
+I suggest doing a diff of `clients.py` and `clients_fanout.py`:
+
+```
+43c51
+< from totalizer.client_utils import total
+---
+> from totalizer.fanout import BaseName
+96c104,106
+<     counts = total(search_spec, 4, window, rkvdns, **kwargs)
+---
+>     
+>     rkvdns = BaseName(rkvdns)
+>     counts = rkvdns.total(search_spec, 4, window, **kwargs)
+98c108
+<         recent_counts = total(search_spec, 4, int(window * TREND_WINDOW), rkvdns, **kwargs)
+---
+>         recent_counts = rkvdns.total(search_spec, 4, int(window * TREND_WINDOW), **kwargs)
+```
+
+To make this work `RKVDNS` (or the equivalent command line argument) should be an FQDN which resolves to one or more (probably more!) `PTR` records,
+each representing one RKVDNS instance. `../fanout/README.md` has more information.
+
 ## The Administrivia
 
 #### TTL
