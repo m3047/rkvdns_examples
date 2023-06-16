@@ -44,3 +44,7 @@ m3047.                  600     IN      NS      ATHENA.m3047.
 ;; ADDITIONAL SECTION:
 ATHENA.m3047.           600     IN      A       10.0.0.220
 ```
+## Let me save you some grief...
+
+I've neglected to supply `task` as the first argument to `BaseName.map()` several times. It always
+produces inscrutable runtime messages.
