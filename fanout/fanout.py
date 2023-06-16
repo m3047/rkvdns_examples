@@ -82,6 +82,9 @@ class BaseName(object):
         
         Return: A hash of the fanout server FQDNs with the individual results as
         values.
+        
+        HINT: The most common mistake I make is forgetting to pass the task as the first
+              argument. (It gives odd and unhelpful runtime messages.)
         """
         with concurrent.futures.ThreadPoolExecutor() as executor:
             threads = dict()
