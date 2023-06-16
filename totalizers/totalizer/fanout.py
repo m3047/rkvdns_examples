@@ -132,7 +132,7 @@ class BaseName(object):
             counts = client_utils.DictOfTotals()
             for server_result in self.map( self.total_, match_spec, parts, window,
                                            delimiter=delimiter, nameservers=nameservers, debug_print=debug_print
-                    ):
+                    ).values():
                 for k,v in server_result.items():
                     counts.add(k,v)            
         else:
