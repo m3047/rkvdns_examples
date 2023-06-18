@@ -28,6 +28,8 @@ import dns.rdataclass as rdclass
 from dns.exception import DNSException
 import dns.rcode
 
+import threading
+
 def prefixes(network):
     """Determine ShoDoHFlo network prefixes.
     
