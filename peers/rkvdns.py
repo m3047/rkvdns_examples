@@ -120,16 +120,48 @@ class Resolver(object):
     
     @property
     def success(self):
-        return self.resp is not None and self.resp.response.rcode() == dns.rcode.NOERROR
+        if self.resp is None or self.resp.response.rcode() != dns.rcode.NOERROR:
+            return False
+        # This part supports ENABLE_ERROR_TXT in RKVDNS.
+        qname = self.resp.response.question[0].name.to_text().lower()
+        for rset in self.resp.response.answer:
+            rname = rset.name.to_text().lower()
+            if rname != qname:
+                continue
+            if rset.rdtype == rdtype.CNAME and 'error' in rset[0].to_text().lower():
+                return False
+        return True
             
     @property
     def result(self):
-        """Returns the first rrset from the answer section which has the correct qtype."""
+        """Returns the result.
+        
+        This is first rrset from the answer section which:
+        
+        * matches the query name; and
+        * has the correct qtype.
+        
+        Both the query name and rset name are lowercased before comparison.
+        """
+        qname = self.resp.response.question[0].name.to_text().lower()
         for rset in self.resp.response.answer:
+            if rset.name.to_text().lower() != qname:
+                continue
             if rset.rdtype != self.qtype:
                 continue
             return rset
         return []
     
-
-
+    @property
+    def any_txt(self):
+        """Return error text.
+        
+        There is a mode in RKVDNS which is enabled by setting ENABLE_ERROR_TXT
+        which returns the error as a TXT record. If that is enabled, this returns
+        the error text.
+        """
+        for rset in self.resp.response.answer:
+            if rset.rdtype != rdtype.TXT:
+                continue
+            return rset
+        return []
