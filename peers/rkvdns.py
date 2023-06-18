@@ -165,3 +165,101 @@ class Resolver(object):
                 continue
             return rset
         return []
+
+class ResolverPool(object):
+    """This is a self-managed pool of Resolver instances.
+    
+    The notion here is to be threadsafe. The instantiation arguments follow those
+    of Resolver:
+    
+    * Any arguments to __init__() are passed to resolver.Resolver()
+    * Any attributes set are applied as attributes on the newly created
+      resolver.Resolver instances.
+      
+    This object is Context Manager aware and supports the with statement as an
+    alternative to calling allocate() / free():
+    
+        with resolver_pool:
+          resolver_pool.query(...)
+          
+    instead of:
+    
+        resolver = resolver_pool.allocate()
+        resolver.query(...)
+        resolver.free()
+    
+    """
+    
+    ATTRS = { 'args', 'kwargs', 'attrs', 'free_list', 'lock', 'contexts' }
+    
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.attrs = {}
+        self.free_list = set()
+        self.lock = threading.Lock()
+        self.contexts = {}
+        return
+    
+    def __setattr__(self, k, v):
+        if k in self.ATTRS:
+            object.__setattr__(self, k, v)
+        else:
+            self.attrs[k] = v
+        return
+    
+    def __enter__(self):
+        resolver = self.allocate()
+        with self.lock:
+            self.contexts[threading.get_ident()] = resolver
+        return self
+    
+    def __exit__(self, *exc):
+        ident = threading.get_ident()
+        self.free(self.contexts[ident])
+        with self.lock:
+            del self.contexts[ident]
+        return False
+    
+    def allocate(self):
+        """Allocate a Resolver from the pool.
+        
+        A new Resolver is allocated if none are free.
+        """
+        with self.lock:
+            if not self.free_list:
+                resolver = Resolver(*self.args,**self.kwargs)
+                for attr,v in self.attrs.items():
+                    setattr( resolver, attr, v )
+                self.free_list.add( resolver )
+            resolver = self.free_list.pop()
+        return resolver
+    
+    def free(self, resolver):
+        """Allow a Resolver instance to be returned to the pool."""
+        with self.lock:
+            self.free_list.add( resolver )
+        return
+    
+    #
+    # Wrappers for the actual Resolver methods / properties.
+    #
+
+    def query(self, qname, qtype):
+        """Wrapper for the Resolver method."""
+        return self.contexts[threading.get_ident()].query( qname, qtype )
+    
+    @property
+    def success(self):
+        """Wrapper for the Resolver property."""
+        return self.contexts[threading.get_ident()].success
+
+    @property
+    def result(self):
+        """Wrapper for the Resolver property."""
+        return self.contexts[threading.get_ident()].result
+
+    @property
+    def any_txt(self):
+        """Wrapper for the Resolver property."""
+        return self.contexts[threading.get_ident()].any_txt
