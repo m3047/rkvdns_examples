@@ -36,10 +36,11 @@ import logging
 class BaseName(object):
     """The encapsulation of the FQDN to be fanned out."""
     
-    def __init__(self, fqdn, warn_if_noanswer=False):
+    def __init__(self, fqdn, warn_if_noanswer=False, dns_servers=None):
         self.fqdn = fqdn
         self.fanout_ = None
         self.warn_if_noanswer = warn_if_noanswer
+        self.dns_servers = dns_servers
         return
     
     @property
@@ -47,6 +48,8 @@ class BaseName(object):
         """Return a list of the PTR FQDNs to be fanned out to."""
         if self.fanout_ is None:
             resolver = Resolver()
+            if self.dns_servers:
+                resolver.nameservers = self.dns_servers
             try:
                 qstatus = None
                 resp = resolver.query( self.fqdn, 'PTR', raise_on_no_answer=False ).response
