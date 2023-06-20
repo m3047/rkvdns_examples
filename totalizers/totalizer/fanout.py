@@ -64,9 +64,12 @@ class BaseName(object):
     def fanout(self):
         """Return a list of the PTR FQDNs to be fanned out to."""
         if self.fanout_ is None:
-            resolver = Resolver()
             if self.dns_servers:
+                resolver = Resolver(configure=False)
                 resolver.nameservers = self.dns_servers
+            else:
+                resolver = Resolver()
+                
             try:
                 qstatus = None
                 resp = resolver.query( self.fqdn, 'PTR', raise_on_no_answer=False ).response
