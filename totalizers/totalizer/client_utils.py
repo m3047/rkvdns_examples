@@ -54,7 +54,7 @@ class Resolver(object):
     will return the error text.
     """
     
-    ATTRS = {'resolver', 'resp', 'qtype'}
+    ATTRS = {'resolver', 'resp', 'qtype', 'exc'}
     
     def __init__(self, *args, **kwargs):
         """Initialize the resolver.
@@ -89,9 +89,10 @@ class Resolver(object):
         self.qtype = qtype
         try:
             self.resp = None
+            self.exc = None
             self.resp = self.resolver.query(qname, qtype, **kwargs)
-        except DNSException:
-            pass
+        except DNSException as exc:
+            self.exc = type(exc).__name__
 
         return self
     
@@ -444,7 +445,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
             debug_print('{} -- success ({})'.format(qname, len(resolver.result)))
     else:
         if debug_print:
-            debug_print('{} -- failure: {}'.format(qname, dns.rcode.to_text(resolver.resp.response.rcode())))
+            debug_print('{} -- failure: {}'.format(qname, resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())))
         return dict()
     resources = Resources(window_floor, delimiter, parts)
     for bucket in resolver.result:
@@ -473,7 +474,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
                 debug_print('{} -- success ({})'.format(qname, value))
         else:
             if debug_print:
-                debug_print('{} -- failure: {}'.format(qname, dns.rcode.to_text(resolver.resp.response.rcode())))
+                debug_print('{} -- failure: {}'.format(qname, resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())))
             continue
         
         if bucket >= window_floor:
