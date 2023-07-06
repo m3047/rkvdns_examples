@@ -78,7 +78,7 @@ class Resolver(object):
             setattr(self.resolver, k, v)
         return
     
-    def query(self, qname, qtype):
+    def query(self, qname, qtype, **kwargs):
         """Query. FLUENT
         
         This makes a lot of assumptions which aren't enforced by the DNS. Don't
@@ -89,7 +89,7 @@ class Resolver(object):
         self.qtype = qtype
         try:
             self.resp = None
-            self.resp = self.resolver.query(qname, qtype)
+            self.resp = self.resolver.query(qname, qtype, **kwargs)
         except DNSException:
             pass
 
@@ -439,7 +439,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     match_spec = delimiter.join(match_spec)
     
     qname = '{}.keys.{}'.format( escape( match_spec ), rkvdns )
-    if resolver.query( qname, rdtype.TXT ).success:
+    if resolver.query( qname, rdtype.TXT, raise_on_no_answer=False ).success:
         if debug_print:
             debug_print('{} -- success ({})'.format(qname, len(resolver.result)))
     else:
@@ -467,7 +467,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
             last_resource = resource
 
         qname = '{}.get.{}'.format(escape(delimiter.join( resource + (str(bucket),) )), rkvdns)
-        if resolver.query( qname, rdtype.TXT ).success:
+        if resolver.query( qname, rdtype.TXT, raise_on_no_answer=False ).success:
             value = int(resolver.result[0].to_text().strip('"'))
             if debug_print:
                 debug_print('{} -- success ({})'.format(qname, value))
