@@ -377,14 +377,6 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
       page;*
       page;*;athena;*
     
-    You could also have multiple values being aggregated on:
-    
-      conn;<proto>;<port>;<server>;<timestamp>
-      
-    You would specify that both proto and port should be aggregated on:
-    
-      [ 'conn', None, None, 'athena' ]
-    
     The delimiter defaults to ";".
     
     In any case totals will be calculated for all of the page names and returned
@@ -393,17 +385,22 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     FieldHandlerType Semantics
     --------------------------
     
+    You could also have multiple values being aggregated on:
+    
+      conn;<proto>;<port>;<server>;<timestamp>
+      
+    You would specify that both proto and port should be aggregated on:
+    
+      [ 'conn', None, None, 'athena' ]
+    
     When constructing the match_spec, None essentially identifies one or more
     fields which should be utilized as breaks for aggregation. This does not
     provide a way to identify internal fields which should not be utilized as
     breaks when their value changes.
     
-    For instance in the previous example
-    
-        [ 'conn', None, None, 'athena' ]
-
-    the break is protocol + port. If you want to break on just one or the other
-    of those (while still focusing on a single server) there's no way to do that.
+    In this previous example the break is protocol + port. If you want to break
+    on just one or the other of those (while still focusing on a single server)
+    there's no way to do that.
     
     FieldHandlerType semantics address this with the two singletons Ignore and
     Break. For instance the following breaks only on port:
