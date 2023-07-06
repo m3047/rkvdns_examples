@@ -439,9 +439,12 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     match_spec = delimiter.join(match_spec)
     
     qname = '{}.keys.{}'.format( escape( match_spec ), rkvdns )
-    if debug_print:
-        debug_print(qname)
-    if not resolver.query( qname, rdtype.TXT ).success:
+    if resolver.query( qname, rdtype.TXT ).success:
+        if debug_print:
+            debug_print('{} -- success ({})'.format(qname, len(resolver.result)))
+    else:
+        if debug_print:
+            debug_print('{} -- failure: {}'.format(qname, dns.rcode.to_text(resolver.resp.response.rcode())))
         return dict()
     resources = Resources(window_floor, delimiter, parts)
     for bucket in resolver.result:
@@ -464,14 +467,15 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
             last_resource = resource
 
         qname = '{}.get.{}'.format(escape(delimiter.join( resource + (str(bucket),) )), rkvdns)
-        if debug_print:
-            debug_print('{}...'.format(qname))
-        if not resolver.query( qname, rdtype.TXT ).success:
+        if resolver.query( qname, rdtype.TXT ).success:
+            value = int(resolver.result[0].to_text().strip('"'))
+            if debug_print:
+                debug_print('{} -- success ({})'.format(qname, value))
+        else:
+            if debug_print:
+                debug_print('{} -- failure: {}'.format(qname, dns.rcode.to_text(resolver.resp.response.rcode())))
             continue
         
-        value = int(resolver.result[0].to_text().strip('"'))
-        if debug_print:
-            debug_print('...{}'.format(value))
         if bucket >= window_floor:
             totals.add( delimiter.join( resource[item] for item in item_of_interest ), value )
             last_bucket = bucket
