@@ -144,7 +144,6 @@ class Resolver(object):
         
         Both the query name and rset name are lowercased before comparison.
         """
-        qname = self.resp.response.question[0].name.to_text().lower()
         for rset in self.resp.response.answer:
             if rset.rdtype != self.qtype:
                 continue
