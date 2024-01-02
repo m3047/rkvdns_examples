@@ -6,7 +6,7 @@ Command line:
 ```
     health.py <fanout-fqdn>
 ```
-Performs a health check of the specified fanout. See [../fanout/README.md](../fanout/README.md) for a
+Performs a health check of the specified fanout. See [../fanout/README.md](../fanout/) for a
 description of what fanout is and how it works. Essentially PTR records identify
 multiple RKVDNS instances to be queried simultaneously (like CNAMEs but different).
 
