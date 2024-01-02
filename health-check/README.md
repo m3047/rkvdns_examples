@@ -46,8 +46,8 @@ ignored (only the successful read is evaluated).
 
 `HEALTH_VALUE` can be set to one of the following:
 
-a string literal    The string literal will be expected for all RKVDNS instances.
-`Fanout_FQDN`         The value should be the (lowercased) fanout instance name.
-`No_Check`            Don't check the value, a successful read is all that is expected.
+* a string literal    The string literal will be expected for all RKVDNS instances.
+* `Fanout_FQDN`         The value should be the (lowercased) fanout instance name.
+* `No_Check`            Don't check the value, a successful read is all that is expected.
 
 `Fanout_FQDN` and `No_Check` are singletons.
