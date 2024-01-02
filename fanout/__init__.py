@@ -6,7 +6,7 @@ RKVDNS queries to multiple servers, fulfilling the objective of federated data
 availability.
 """
 
-from fanout.py import BaseName
+from .fanout import BaseName
 
 WARN_IF_NO_ANSWER = True
 
