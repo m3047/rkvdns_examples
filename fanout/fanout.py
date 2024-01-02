@@ -26,7 +26,7 @@ Assets here address the following concerns:
 * Reducing the task results to a single result set.
 """
 
-from dns.resolver import Resolver
+from dns.resolver import Resolver, NXDOMAIN
 import dns.rcode as rcode
 import dns.rdatatype as rdtype
 
@@ -41,6 +41,7 @@ class BaseName(object):
         self.fanout_ = None
         self.warn_if_noanswer = warn_if_noanswer
         self.dns_servers = dns_servers
+        self.qstatus = None
         return
     
     @property
@@ -53,21 +54,24 @@ class BaseName(object):
                 resolver.nameservers = self.dns_servers
             else:
                 resolver = Resolver()
- 
             try:
-                qstatus = None
-                resp = resolver.query( self.fqdn, 'PTR', raise_on_no_answer=False ).response
-                qstatus = resp.rcode()                
-                if qstatus != rcode.NOERROR:
+                self.qstatus = None
+                if hasattr(resolver, 'resolve'):
+                    resp = resolver.resolve( self.fqdn, 'PTR', raise_on_no_answer=False ).response
+                else:
+                    resp = resolver.query( self.fqdn, 'PTR', raise_on_no_answer=False ).response
+                self.qstatus = resp.rcode()
+                if self.qstatus != rcode.NOERROR:
                     if self.warn_if_noanswer:
-                        logging.warn('Query failure: {}'.format(rcode.to_text(qstatus)))
-                    qstatus = None
+                        logging.warn('Query failure: {}'.format(rcode.to_text(self.qstatus)))
             except Exception as e:
+                if isinstance( e, NXDOMAIN):
+                    self.qstatus = rcode.NXDOMAIN
                 if self.warn_if_noanswer:
                     logging.warn('Query failure: {}'.format(type(e).__name__))
-                pass
-            if qstatus is None:
-                self.fanount_ = []
+            
+            if self.qstatus != rcode.NOERROR:
+                self.fanout_ = []
                 return self.fanout_
             for rrset in resp.answer:
                 if rrset.rdtype == rdtype.PTR:
