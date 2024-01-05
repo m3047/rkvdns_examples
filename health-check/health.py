@@ -157,9 +157,11 @@ def main( target ):
         return v == HEALTH_VALUE
     
     base = fanout.BaseName( target, WARN_IF_NOERROR )
-    instances = sorted( base.fanout )
+    instances = base.fanout
     if base.qstatus != rcode.NOERROR:
         print('Failed to resolve {} ({})'.format(target, rcode.to_text(base.qstatus)), file=sys.stderr)
+        sys.exit(1)
+    instances = sorted( instances )
     
     soa = base.map( query, None, rdtype.SOA )
     ns = base.map( query, None, rdtype.NS )
