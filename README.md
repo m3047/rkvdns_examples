@@ -8,7 +8,7 @@ Each example is in a separate subdirectory. **If you have an example you'd like 
 a subdirectory and send a PR.** _Python_ is not required, any language will do!
 
 * `fanout` map a function to multiple servers based on DNS PTRs
-* `health-check` a health check of a fleet of _RKVDNS_ instances configured as a fanout
+* `fleet-management` a health check and configuration reporting of a fleet of _RKVDNS_ instances configured as a fanout
 * `ignition-tags` updating tags in _Ignition SCADA_
 * `peers` get netflow peers (by name) for a host, and friends `hosts` and `compare`
 * `totalizers` UDP listening agent which posts to redis, and RKVDNS reporting tools
