@@ -33,14 +33,12 @@ Here is example output:
 In the second record, for some reason the SOA / NS records can't be read or have incorrect
 values. In the third record the Redis database can't be read or the value was incorrect.
 
-Redis Keys
-----------
+#### Redis Keys
 
-In the configuration file, the key to be read is specified with `HEALTH_KEY`. The
+In the configuration file (`configuration.py`), the key to be read is specified with `HEALTH_KEY`. The
 default is `health` (lower case).
 
-`HEALTH_KEY` Values
------------------
+##### `HEALTH_KEY` Values
 
 By default the `HEALTH_KEY` in each Redis instance is supposed to return a value which
 is identical to the lower-cased Redis instance name specified with <fanout-fqdn>. It
@@ -49,8 +47,8 @@ ignored (only the successful read is evaluated).
 
 `HEALTH_VALUE` can be set to one of the following:
 
-* a string literal    The string literal will be expected for all RKVDNS instances.
-* `Fanout_FQDN`         The value should be the (lowercased) fanout instance name.
+* a string literal      The string literal will be expected for all RKVDNS instances.
+* `Fanout_FQDN`         The value should be the (lowercased) fanout instance name. (default)
 * `No_Check`            Don't check the value, a successful read is all that is expected.
 
 `Fanout_FQDN` and `No_Check` are singletons.
