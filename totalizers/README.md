@@ -105,7 +105,7 @@ humans.txt                      1   0.00
 One example is provided of `fanout`: the ability to send a query to multiple RKVDNS instances and aggregate the data from all of them.
 
 * `clients_fanout.py` The fanout version of `clients.py`.
-* `totalizer.fanout.BaseName` The fanout replacement for `totalizer.cleint_utils.total`
+* `totalizer.fanout.BaseName` The fanout replacement for `totalizer.client_utils.total`
 
 I suggest doing a diff of `clients.py` and `clients_fanout.py`:
 
