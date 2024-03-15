@@ -44,18 +44,6 @@ def lart(msg=None, help='health fanout-fqdn'):
         print(help, file=sys.stderr)
     sys.exit(1)
 
-class HealthValueType(object):
-    """Base class for HEALTH_VALUE singletons."""
-    pass
-class FanoutFQDNType(HealthValueType):
-    """Indicates that the value should be the fanout instance name."""
-    pass
-Fanout_FQDN = FanoutFQDNType()
-class NoCheckType(HealthValueType):
-    """Indicates that the value should be ignored."""
-    pass
-No_Check = NoCheckType()
-
 ESCAPED = { c for c in ESCAPED }
     
 def escape(qname):
