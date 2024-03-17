@@ -15,7 +15,7 @@
 
 """Aggregate Log Lines to Redis Keys.
 
-    agent {<config-name>} {+test}
+    agent {<config-name>} {+test} {+printstring}
     
 Parameters:
 
@@ -23,6 +23,8 @@ Parameters:
                 omit .py). Default is agent_config
     test        If supplied, then Redis is not written to and the key which would
                 have been written is instead written to stdout.
+    print       If supplied, then the string which is presented for matching internally
+                is printed for inspection. (Useful with +test.)
 
 This is a beast! You define rules (see agent_config.py) and based on those
 it:
@@ -200,7 +202,10 @@ class UDPListener(asyncio.DatagramProtocol):
             return
         
         for line in request.split(b'\n'):
-            matched = rules.match(self.local_addr[0], self.local_addr[1], self.asciify(line))
+            asciified = self.asciify(line)
+            if self.printstring:
+                print('<< {} >>'.format(asciified))
+            matched = rules.match(self.local_addr[0], self.local_addr[1], asciified)
             for match in matched:
                 if self.redis_stats is not None:
                     args = match + (self.redis_stats.start_timer(), )
@@ -261,7 +266,7 @@ async def close_tasks(tasks):
         pass
     return
 
-def main(testing=False):
+def main(testing=False, printstring=False):
 
     event_loop = asyncio.new_event_loop()
     asyncio.set_event_loop( event_loop )
@@ -297,6 +302,7 @@ def main(testing=False):
         service.datagram_stats = datagram_stats
         service.redis_stats = redis_stats
         service.local_addr=(address, int(port))
+        service.printstring = printstring
 
         transports.append(transport)
 
@@ -322,10 +328,13 @@ if __name__ == "__main__":
     argv = sys.argv.copy()
     
     testing = False
+    printstring = False
     while len(argv) > 1 and argv[-1].startswith('+'):
         arg = argv.pop()[1:]
         if   arg == 'testing'[:len(arg)]:
             testing = True
+        if   arg == 'printstring'[:len(arg)]:
+            printstring = True
     
     if len(argv) > 2:
         lart('Too many arguments')
@@ -345,4 +354,4 @@ if __name__ == "__main__":
     if LOG_LEVEL is not None:
         logging.basicConfig(level=LOG_LEVEL)
     
-    main(testing)
+    main(testing, printstring)
