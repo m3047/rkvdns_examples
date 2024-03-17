@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2020-2023 by Fred Morris Tacoma WA
+# Copyright (c) 2020-2024 by Fred Morris Tacoma WA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -160,7 +160,8 @@ class Controller(object):
 
         self.semaphore.release()
         
-        redis_timer.stop()
+        if redis_timer is not None:
+            redis_timer.stop()
 
         if PRINT_COROUTINE_ENTRY_EXIT:
             PRINT_COROUTINE_ENTRY_EXIT('< finish')
@@ -171,8 +172,8 @@ MAX_GOOD_ASCII = 126
 
 class UDPListener(asyncio.DatagramProtocol):
     
-    def connection_made(self, transport):
-        self.transport = transport
+    def __init__(self):
+        asyncio.DatagramProtocol.__init__(self)
         self.requests = set()
         return
     
@@ -193,17 +194,22 @@ class UDPListener(asyncio.DatagramProtocol):
         if self.controller.queue_full():
             if PRINT_COROUTINE_ENTRY_EXIT:
                 PRINT_COROUTINE_ENTRY_EXIT('< handle_request')
-            datagram_timer.stop('dropped')
+            if datagram_timer is not None:
+                datagram_timer.stop('dropped')
             self.requests.remove(promise[0])
             return
         
         for line in request.split(b'\n'):
             matched = rules.match(self.local_addr[0], self.local_addr[1], self.asciify(line))
             for match in matched:
-                args = match + (self.redis_stats.start_timer(), )
+                if self.redis_stats is not None:
+                    args = match + (self.redis_stats.start_timer(), )
+                else:
+                    args = match + (None, )
                 await self.controller.submit( *args )
 
-        datagram_timer.stop('processed')
+        if datagram_timer is not None:
+            datagram_timer.stop('processed')
         self.requests.remove(promise[0])
 
         if PRINT_COROUTINE_ENTRY_EXIT:
@@ -213,8 +219,10 @@ class UDPListener(asyncio.DatagramProtocol):
     def datagram_received(self, request, addr):
         promise = []
         task = self.event_loop.create_task(
-                    self.handle_request( request, self.datagram_stats.start_timer(), promise )
-            )
+                    self.handle_request( request, 
+                                         self.datagram_stats is not None and self.datagram_stats.start_timer() or None,
+                                         promise
+            )                          )
         promise.append(task)
         self.requests.add(task)
         return
@@ -265,6 +273,7 @@ def main(testing=False):
         redis_stats = statistics.Collector('redis')
     else:
         statistics = datagram_stats = None
+        redis_stats = None
 
     controller = Controller(REDIS_SERVER, REDIS_CONNECTIONS, REDIS_QUEUE_MAX, event_loop, testing)
     transports = []
