@@ -50,6 +50,11 @@ tail -f access_log | nc -u 127.0.0.1 3430
 
 If you needed something more featureful and complicated, you could use for example _Logstash_.
 
+#### You can point syslog (UDP) at it
+
+Somebody asked, and so I wrote an article about it:
+[Can I send Syslog Data to the Totalizer, and What Has Redis Got To Do With It?](http://consulting.m3047.net/dubai-letters/syslog-totalizer-redis.html)
+
 ## The Client(s)
 
 __Further information and examples will follow.__
