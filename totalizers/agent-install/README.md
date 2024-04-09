@@ -44,3 +44,8 @@ All this is doing is tailing the log and piping that to _netcat_ (`nc`). `nc` wi
 socket the totalizer agent is supposed to be listening to is unavailable, and this leaves the `tail` running and consuming
 100% of CPU (at least on SuSE Leap 15.0). If you want it to start at system boot, you may need to put a one-shot timer in
 front of it to give the agent a chance to start up.
+
+### Have you considered pointing `syslog` at it?
+
+If you want something maybe a little more reliable and you already have syslog running, have you considered pointing it
+at the totalizer? Just a thought. I wrote an article about it: http://consulting.m3047.net/dubai-letters/syslog-totalizer-redis.html
