@@ -141,8 +141,6 @@ class Resolver(object):
         This is first rrset from the answer section which:
         
         * has the correct qtype.
-        
-        Both the query name and rset name are lowercased before comparison.
         """
         for rset in self.resp.response.answer:
             if rset.rdtype != self.qtype:
