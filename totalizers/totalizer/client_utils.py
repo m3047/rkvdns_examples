@@ -379,6 +379,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     In any case totals will be calculated for all of the page names and returned
     as a list of (<page-name>,<total>) tuples.
     
+
     FieldHandlerType Semantics
     --------------------------
     
@@ -408,6 +409,20 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     
         Ignore  Don't use this field as a break.
         Break   Use this field as a break (equivalent to None)
+        
+
+    Count Reported as Zero
+    ----------------------
+    
+    You may rarely see a count reported as zero. Fractional counts have to be
+    computed when a bucket's start time lies outside (prior) to the start of the
+    reporting period. It is possible for this computed value to be less than one,
+    in which case it is reported as zero.
+    
+    Example: Only one third (0.33) of the bucket's window lies within the reporting
+    period, and there were only two occurrences observed. The computed value is
+    0.66 which is less than one; if this is the only bucket for the key, it will be
+    reported as zero.
     """
     now = int(time())
     window_floor = now - window
