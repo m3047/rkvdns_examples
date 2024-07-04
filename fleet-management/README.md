@@ -41,8 +41,18 @@ default is `health` (lower case).
 ##### `HEALTH_KEY` Values
 
 By default the `HEALTH_KEY` in each Redis instance is supposed to return a value which
-is identical to the lower-cased Redis instance name specified with <fanout-fqdn>. It
-is also possible to specify a fixed value for all instances, or to have the read value
+is identical to the lower-cased Redis instance name specified with `<fanout-fqdn>`:
+
+```
+# dig redis.m3047 PTR +short
+REDIS.SOPHIA.M3047.
+REDIS.ATHENA.M3047.
+REDIS.FLAME.M3047.
+# dig health.get.redis.flame.m3047 txt +short
+"redis.flame.m3047"
+```
+
+It is also possible to specify a fixed value for all instances, or to have the read value
 ignored (only the successful read is evaluated).
 
 `HEALTH_VALUE` can be set to one of the following:
