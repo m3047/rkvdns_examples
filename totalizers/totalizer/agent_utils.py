@@ -333,7 +333,13 @@ class WatchList(object):
             if not matched:
                 continue
             if 'postproc' in rule.substitutions:
-                kwargs = rule.substitutions['postproc'](matched)
+                try:
+                    kwargs = rule.substitutions['postproc'](matched)
+                except Exception as e:
+                    logging.warn('postproc error: {} prefix={} in <{}>'.format(
+                                    e, rule.substitutions.get('prefix','--none--'), message
+                                ) )
+                    kwargs=None
             else:
                 kwargs = dict(matched=matched.group(1))
             if kwargs is None:
