@@ -222,6 +222,13 @@ class UDPListener(asyncio.DatagramProtocol):
         return
 
     def datagram_received(self, request, addr):
+        # This catches rare cases when the python queues up a datagram when the
+        # endpoint is created and before we run forever... sometimes it happens!
+        try:
+            event_loop = self.event_loop
+        except:
+            logging.warn('Ignoring datagram queued during endpoint creation...')
+            return
         promise = []
         task = self.event_loop.create_task(
                     self.handle_request( request, 
