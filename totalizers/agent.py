@@ -230,7 +230,7 @@ class UDPListener(asyncio.DatagramProtocol):
             logging.warn('Ignoring datagram queued during endpoint creation...')
             return
         promise = []
-        task = self.event_loop.create_task(
+        task = event_loop.create_task(
                     self.handle_request( request, 
                                          self.datagram_stats is not None and self.datagram_stats.start_timer() or None,
                                          promise
