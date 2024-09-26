@@ -58,10 +58,11 @@ rules.define(
 def web_page_postproc(matched):
     value = matched.group(1)
 
-    # There is a hard limit on DNS keys of 255 bytes, we need to fit in that
-    # while also including the other parts of the key.
-    if len(value) > 64:
-        value = value[:64]
+    # There is a hard limit on DNS keys of 255 bytes, but more importantly there is
+    # a maximum label length of 64 bytes. We need to fit in that while also including
+    # the other parts of the key.
+    if len(value) > 32:
+        value = value[:32]
 
     # We're using ";" as our delimiter.
     value = value.strip(';').split(';')[0]
