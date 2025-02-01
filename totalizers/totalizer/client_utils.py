@@ -33,6 +33,7 @@ import threading
 REDIS_WILDCARD = '*'
 ESCAPED = { c for c in '.;' }
 DEFAULT_DELIMITER = ';'
+FATAL_RCODES = { 'SERVFAIL', 'NXDOMAIN' }
     
 def escape(qname):
     """Escape . and ;"""
@@ -453,7 +454,10 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
         if debug_print:
             debug_print('{} -- success ({})'.format(qname, len(resolver.result)))
     else:
-        if debug_print:
+        # SERVFAIL or NXDOMAIN here means something more serious.
+        if   (resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())) in FATAL_RCODES:
+            logging.error('Fatal error in query: {} -- {}, check logs'.format(qname, resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())))
+        elif debug_print:
             debug_print('{} -- failure: {}'.format(qname, resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())))
         return dict()
     resources = Resources(window_floor, delimiter, parts)
