@@ -337,8 +337,8 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
       window            The number of seconds in the aggregation window. Note that the
                         maximum aggregation window is bounded by the number of buckets
                         and the bucket period being used for aggregation.
-      rkvdns            The RKVDNS domain name or an FQDN pointing to a fanout of RKVDNS
-                        domains.
+      rkvdns            The RKVDNS domain name. See totalizer.fanout if you want to use a
+                        fanout FQDN.
       delimiter         Keys are comprised of delimited parts. This is the delimiter.
       nameservers       A way to explicitly call out the nameservers to use.
       debug_print       A print function for debug output.
