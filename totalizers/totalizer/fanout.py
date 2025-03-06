@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2023 by Fred Morris Tacoma WA
+# Copyright (c) 2023-2025 by Fred Morris Tacoma WA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,7 +53,13 @@ from . import client_utils
 class BaseName(object):
     """The encapsulation of the FQDN to be fanned out."""
     
-    def __init__(self, fqdn, warn_if_noanswer=False, dns_servers=None):
+    def __init__(self, fqdn, warn_if_noanswer=False, dns_servers=None, warn_empty_ptr=True):
+        """Create the fanout object.
+        
+        warn_if_noanswer is a global switch. Setting warn_empty_ptr to False suppresses
+        warnings when the fqdn references a particular RKVDNS domain instead of a fanout,
+        although the connection is not tested here.
+        """
         self.fqdn = fqdn
         self.fanout_ = None
         self.warn_if_noanswer = warn_if_noanswer
@@ -90,7 +96,7 @@ class BaseName(object):
                     self.fanout_ = [ rd.to_text().strip('.').lower() for rd in rrset ]
                     break
             if not self.fanout_:
-                if self.warn_if_noanswer:
+                if self.warn_if_noanswer and self.warn_empty_ptr:
                     logging.warn('Empty PTR result.')
         return self.fanout_
     
