@@ -64,6 +64,7 @@ class BaseName(object):
         self.fanout_ = None
         self.warn_if_noanswer = warn_if_noanswer
         self.dns_servers = dns_servers
+        self.warn_empty_ptr = warn_empty_ptr
         return
     
     @property
