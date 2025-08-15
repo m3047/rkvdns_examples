@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2022-2023 by Fred Morris Tacoma WA
+# Copyright (c) 2022-2023,2025 by Fred Morris Tacoma WA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RKVDNS Data Query Encapsulation.
+"""RKVDNS Data Query Encapsulation and total()
 
 Basic order of operations is to allocate a Resolver and then call query()
 and test success and result.
+
+ResolverPool is for when you need resolvers for multiple threads.
+
+total() takes arguments including a match spec specifying the fields to break
+on and a specific RKVDNS instance and performs the necessary queries to compute
+totals across all fields matching the break spec.
 """
 
 import logging
@@ -31,6 +37,7 @@ from time import time
 import threading
 
 REDIS_WILDCARD = '*'
+SHARD_IGNORE = '**'
 ESCAPED = { c for c in '.;' }
 DEFAULT_DELIMITER = ';'
 FATAL_RCODES = { 'SERVFAIL', 'NXDOMAIN' }
@@ -253,21 +260,28 @@ class Resources(object):
     additional work to pro-rate the bucket which was opened earlier than the
     window floor.
     """
-    def __init__(self, window_floor, delimiter, parts):
+    def __init__(self, window_floor, delimiter, parts, sharded):
         self.resources = dict()
         self.window_floor = window_floor
         self.delimiter = delimiter
         self.parts = parts
+        self.sharded = sharded
         return
     
     def append(self, bucket):
-        bucket = bucket.split( self.delimiter )
-        if len(bucket) != self.parts:
-            raise ValueError('Wrong number of parts: {}'.format(bucket))
-        resource = tuple( bucket[:-1] )
-        if resource not in self.resources:
-            self.resources[resource] = []
-        self.resources[resource].append(int(bucket[-1]))
+        if self.sharded:
+            resource = bucket[:-2]
+            if resource not in self.resources:
+                self.resources[resource] = []
+            self.resources[resource].append( tuple( int(elem) for elem in bucket[-2:] ) )
+        else:
+            bucket = bucket.split( self.delimiter )
+            if len(bucket) != self.parts:
+                raise ValueError('Wrong number of parts: {}'.format(bucket))
+            resource = tuple( bucket[:-1] )
+            if resource not in self.resources:
+                self.resources[resource] = []
+            self.resources[resource].append(int(bucket[-1]))
         return
     
     def sort(self):
@@ -276,10 +290,28 @@ class Resources(object):
         return
     
     def buckets(self):
+        """Yield buckets until we're below the window floor.
+        
+        SMELL: If the Totalizer Agent is restarted then it will create a newly timestamped
+        bucket. This means that it's possible that theoretically more than one bucket could
+        exist with a timestamp below the window floor, but data within the window. We will only
+        pick up one bucket with a timestamp (the most recent) below the window floor. We
+        don't know what the window is, so that's as good as it gets. Can result in
+        underreporting of events in buckets with timestamps which have aged out of the
+        window, on unstable / ephemeral systems. Nobody has raised this as an issue, I don't
+        find it to be an issue, so not doing anything about it. (Mitigation: use more / smaller
+        buckets if you care, but why would you?)
+        """
         for k,buckets in self.resources.items():
             for bucket in buckets:
                 yield (k, bucket)
-                if bucket < self.window_floor:
+                if self.sharded:
+                    # It's a tuple
+                    bucket_val = bucket[0]
+                else:
+                    # It's an int
+                    bucket_val = bucket
+                if bucket_val < self.window_floor:
                     break
         return
 
@@ -326,7 +358,7 @@ Ignore = IgnoreType()
 MATCH_SPEC_HANDLERS = { None, Break, Ignore }
 MATCH_SPEC_BREAK = { None, Break }
     
-def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, nameservers=None, debug_print=None):
+def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, nameservers=None, debug_print=None, sharded=False):
     """Compute a total over the window for some set of keys.
     
     Parameters:
@@ -342,6 +374,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
       delimiter         Keys are comprised of delimited parts. This is the delimiter.
       nameservers       A way to explicitly call out the nameservers to use.
       debug_print       A print function for debug output.
+      sharded           If True, uses SHGET (sharded get).
       
     Returns a dictionary of totals (DictOfTotals), where the key is the item of interest
     or "break" to aggregate.
@@ -424,6 +457,12 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     period, and there were only two occurrences observed. The computed value is
     0.66 which is less than one; if this is the only bucket for the key, it will be
     reported as zero.
+    
+    Sharded Operation
+    -----------------
+    
+    If sharded = True, then the SHGET operator is utilized, resulting in fewer larger
+    DNS queries.
     """
     now = int(time())
     window_floor = now - window
@@ -436,20 +475,35 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     
     match_spec = match_spec.copy()
     item_of_interest = []
-    for i in range(len(match_spec)):
-        if match_spec[i] in MATCH_SPEC_HANDLERS:
-            if match_spec[i] in MATCH_SPEC_BREAK:
-                # Ignore items are not added here.
-                item_of_interest.append(i)
-            match_spec[i] = REDIS_WILDCARD
+    if sharded:
+        for i in range(parts-1):
+            if i < len(match_spec):
+                if match_spec[i] in MATCH_SPEC_HANDLERS:
+                    if match_spec[i] in MATCH_SPEC_BREAK:
+                        # Ignore items are not added here.
+                        item_of_interest.append(i)
+                        match_spec[i] = REDIS_WILDCARD
+                    else:
+                        match_spec[i] = SHARD_IGNORE
+            else:
+                match_spec.append( SHARD_IGNORE )
+        match_spec.append( REDIS_WILDCARD )
+    else:
+        for i in range(len(match_spec)):
+            if match_spec[i] in MATCH_SPEC_HANDLERS:
+                if match_spec[i] in MATCH_SPEC_BREAK:
+                    # Ignore items are not added here.
+                    item_of_interest.append(i)
+                match_spec[i] = REDIS_WILDCARD
+        if not match_spec[-1].endswith(REDIS_WILDCARD):
+            match_spec.append(REDIS_WILDCARD)
+
     if not item_of_interest:
         raise SpecError('No item of interest found in match_spec.')
     
-    if not match_spec[-1].endswith(REDIS_WILDCARD):
-        match_spec.append(REDIS_WILDCARD)
     match_spec = delimiter.join(match_spec)
-    
-    qname = '{}.keys.{}'.format( escape( match_spec ), rkvdns )
+
+    qname = '{}.{}.{}'.format( escape( match_spec ), sharded and 'shget' or 'keys', rkvdns )
     if resolver.query( qname, rdtype.TXT, raise_on_no_answer=False ).success:
         if debug_print:
             debug_print('{} -- success ({})'.format(qname, len(resolver.result)))
@@ -460,14 +514,18 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
         elif debug_print:
             debug_print('{} -- failure: {}'.format(qname, resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())))
         return dict()
-    resources = Resources(window_floor, delimiter, parts)
+
+    resources = Resources(window_floor, delimiter, parts, sharded)
     for bucket in resolver.result:
         try:
-            resources.append( bucket.to_text().strip('"') )
+            if sharded:
+                resources.append( tuple( string.decode() for string in bucket.strings ) )
+            else:
+                resources.append( bucket.strings[0].decode() )
         except ValueError as e:
             logging.warn('Invalid bucket key in result set for {}: {}'.format(qname, e))
     resources.sort()
-    
+
     totals = DictOfTotals()
     
     last_resource = ''
@@ -480,18 +538,25 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
             last_bucket = now
             last_resource = resource
 
-        qname = '{}.get.{}'.format(escape(delimiter.join( resource + (str(bucket),) )), rkvdns)
-        if resolver.query( qname, rdtype.TXT, raise_on_no_answer=False ).success:
-            value = int(resolver.result[0].to_text().strip('"'))
-            if debug_print:
-                debug_print('{} -- success ({})'.format(qname, value))
+        if sharded:
+            # Bucket is actually (bucket, value)
+            value = bucket[1]
+            bucket = bucket[0]
+            total_key = delimiter.join( resource )
         else:
-            if debug_print:
-                debug_print('{} -- failure: {}'.format(qname, resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())))
-            continue
+            qname = '{}.get.{}'.format(escape(delimiter.join( resource + (str(bucket),) )), rkvdns)
+            if resolver.query( qname, rdtype.TXT, raise_on_no_answer=False ).success:
+                value = int(resolver.result[0].to_text().strip('"'))
+                if debug_print:
+                    debug_print('{} -- success ({})'.format(qname, value))
+            else:
+                if debug_print:
+                    debug_print('{} -- failure: {}'.format(qname, resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())))
+                continue
+            total_key = delimiter.join( resource[item] for item in item_of_interest )
         
         if bucket >= window_floor:
-            totals.add( delimiter.join( resource[item] for item in item_of_interest ), value )
+            totals.add( total_key, value )
             last_bucket = bucket
             continue
         
@@ -502,7 +567,7 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
         # Our presumption at this point is that last_bucket is within the window, but the
         # bucket start time is outside of it.
         portion = (last_bucket - window_floor) / (last_bucket - bucket)
-        totals.add( delimiter.join( resource[item] for item in item_of_interest ), int(value * portion) )
+        totals.add( total_key, int(value * portion) )
     
     return totals
 
