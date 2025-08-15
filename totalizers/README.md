@@ -57,8 +57,6 @@ Somebody asked, and so I wrote an article about it:
 
 ## The Client(s)
 
-__Further information and examples will follow.__
-
 Take a look at `totalizer.client_utils`, in particular `total()`. Here's an interactive
 Python example:
 
@@ -103,6 +101,25 @@ humans.txt                      1   0.00
 139.198.41.148      200      1   0.00
 149.18.50.22        404      1   0.00
 ...
+```
+
+#### Using the `SHGET` operator
+
+RKVDNS now supports [a custom `SHGET` operator](https://github.com/m3047/rkvdns/blob/main/SHARDS_Command.md) and `client_utils.total()` has
+been updated to optionally utilize it (*sharded mode*). It will result in fewer DNS queries but larger recordsets in the responses.
+To get `client_utils.total()` to operate in sharded mode, specify the keyword argument `sharded=True`:
+
+```
+>>> from totalizer.client_utils import total, Ignore, Break
+>>> total( ['logins', Ignore, Break, Break, Break ], 7, 86400, 'redis.flame.m3047', debug_print=print )
+logins\;*\;*\;*\;*.keys.redis.flame.m3047 -- success (3)
+logins\;ssh\;t\;10\.0\.0\.224\;m3047\;flame\;1755290511.get.redis.flame.m3047 -- success (1)
+logins\;ssh\;t\;10\.0\.0\.224\;m3047\;flame\;1755196509.get.redis.flame.m3047 -- success (4)
+logins\;sudo\;t\;-\;root\;flame\;1755242401.get.redis.flame.m3047 -- success (1)
+{'t;10.0.0.224;m3047': 4, 't;-;root': 1}
+>>> total( ['logins', Ignore, Break, Break, Break ], 7, 86400, 'redis.flame.m3047', debug_print=print, sharded=True )
+logins\;**\;*\;*\;*\;**\;*.shget.redis.flame.m3047 -- success (3)
+{'t;10.0.0.224;m3047': 4, 't;-;root': 1}
 ```
 
 ## Fanout
