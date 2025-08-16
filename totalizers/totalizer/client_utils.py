@@ -270,10 +270,11 @@ class Resources(object):
     
     def append(self, bucket):
         if self.sharded:
-            resource = bucket[:-2]
+            resource = bucket[:self.parts]
             if resource not in self.resources:
                 self.resources[resource] = []
-            self.resources[resource].append( tuple( int(elem) for elem in bucket[-2:] ) )
+            count = sum( int(elem) for elem in bucket[self.parts+1:] )
+            self.resources[resource].append(( int(bucket[self.parts]), count ))
         else:
             bucket = bucket.split( self.delimiter )
             if len(bucket) != self.parts:
@@ -515,6 +516,8 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
             debug_print('{} -- failure: {}'.format(qname, resolver.exc or dns.rcode.to_text(resolver.resp.response.rcode())))
         return dict()
 
+    if sharded:
+        parts = len(item_of_interest)
     resources = Resources(window_floor, delimiter, parts, sharded)
     for bucket in resolver.result:
         try:
