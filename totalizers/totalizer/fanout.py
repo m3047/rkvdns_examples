@@ -131,7 +131,7 @@ class BaseName(object):
         """Wrapper for client_utils.total() for use with BaseName.map()."""
         return client_utils.total( *args, server, **kwargs )
     
-    def total(self, match_spec, parts, window, delimiter=client_utils.DEFAULT_DELIMITER, nameservers=None, debug_print=None):
+    def total(self, match_spec, parts, window, delimiter=client_utils.DEFAULT_DELIMITER, nameservers=None, debug_print=None, sharded=False):
         """Wraps totalizer.client_utils.total()
         
         The output is the same type as totalizer.client_utils.total(), it is just summed across the
@@ -147,12 +147,12 @@ class BaseName(object):
         if self.fanout:
             counts = client_utils.DictOfTotals()
             for server_result in self.map( self.total_, match_spec, parts, window,
-                                           delimiter=delimiter, nameservers=nameservers, debug_print=debug_print
+                                           delimiter=delimiter, nameservers=nameservers, debug_print=debug_print, sharded=sharded
                     ).values():
                 for k,v in server_result.items():
                     counts.add(k,v)            
         else:
-            counts = client_utils.total( match_spec, parts, window, self.fqdn, delimiter, nameservers, debug_print )
+            counts = client_utils.total( match_spec, parts, window, self.fqdn, delimiter, nameservers, debug_print, sharded )
         
         return counts
     
