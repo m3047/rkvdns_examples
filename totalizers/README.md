@@ -40,6 +40,8 @@ This is captured in a _keypattern_. Here is the keypattern used in the sample fi
 * **source** represents a particular server
 * **start_ts** is when the bucket was first created
 
+**NOTE: `totalizer.client_utils.total()` relies on the `start_ts` timestamp being the final delimited element in the key.**
+
 #### Feeding the beast
 
 The sample is analyzing an _Apache_ access log. All we're using to send it to the Agent is:
