@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2022-2023,2025 by Fred Morris Tacoma WA
+# Copyright (c) 2022-2023,2025,2026 by Fred Morris Tacoma WA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ class Resolver(object):
             setattr(self.resolver, k, v)
         return
     
-    def query(self, qname, qtype, **kwargs):
+    def query(self, qname, qtype=None, **kwargs):
         """Query. FLUENT
         
         This makes a lot of assumptions which aren't enforced by the DNS. Don't
@@ -94,11 +94,12 @@ class Resolver(object):
         
         Returns a reference to the object itself.
         """
-        self.qtype = qtype
+        if qtype:
+            self.qtype = qtype
         try:
             self.resp = None
             self.exc = None
-            self.resp = self.resolver.query(qname, qtype, **kwargs)
+            self.resp = self.resolver.query(qname, self.qtype, **kwargs)
         except DNSException as exc:
             self.exc = type(exc).__name__
 
