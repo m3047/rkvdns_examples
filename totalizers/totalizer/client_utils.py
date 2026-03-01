@@ -40,7 +40,7 @@ REDIS_WILDCARD = '*'
 SHARD_IGNORE = '**'
 ESCAPED = { c for c in '.;' }
 DEFAULT_DELIMITER = ';'
-FATAL_RCODES = { 'SERVFAIL', 'NXDOMAIN' }
+FATAL_RCODES = { 'SERVFAIL', 'NXDOMAIN', 'NoNameservers' }
     
 def escape(qname):
     """Escape . and ;"""
