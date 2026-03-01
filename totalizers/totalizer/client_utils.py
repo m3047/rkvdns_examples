@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2022-2023,2025,2026 by Fred Morris Tacoma WA
+# Copyright (c) 2022-2023,2025-2026 by Fred Morris Tacoma WA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -270,6 +270,12 @@ class Resources(object):
         return
     
     def append(self, bucket):
+        """Appends a bucket timestamp to the list of buckets.
+        
+        In sharded mode the bucket is actually a tuple comprised of the
+        timestamp and (sum of) the bucket value(s). Sharded mode saves
+        an extra get query to retrieve the bucket value.
+        """
         if self.sharded:
             resource = bucket[:self.parts]
             if resource not in self.resources:
@@ -357,9 +363,48 @@ class IgnoreType(FieldHandlerType):
 
 Ignore = IgnoreType()
 
-MATCH_SPEC_HANDLERS = { None, Break, Ignore }
-MATCH_SPEC_BREAK = { None, Break }
+class PartialType(FieldHandlerType):
+    """Allows part of a break field to be treated as a constant.
     
+    PartialType has no predefined singleton instance. Instances can still be
+    compared for identity using the "is" operator.
+    
+    Partial should contain one and only one wildcard specifier, whether '*' or '**'.
+    
+    Properties
+    ----------
+    
+        partial     The partial spec provided when the instance was created.
+        spec        This is partial except that any instances of '**' have been
+                    replaced with '*'. Used when not operating in sharded mode.
+    """
+    def __init__(self, partial):
+        self.partial = partial
+        parts = partial.split(SHARD_IGNORE)
+        if len(parts) == 2:
+            self.ignore = True
+        else:
+            self.ignore = False
+            parts = partial.split(REDIS_WILDCARD)
+        if len(parts) != 2:
+            raise SpecError('PartialType must contain one and only one wildcard specifier, whether "*" or "**".')
+        self.spec = partial.replace(SHARD_IGNORE,REDIS_WILDCARD)
+        return
+
+def is_match_spec_handler( item ):
+    if item is None:
+        return True
+    if isinstance( item, FieldHandlerType ):
+        return True
+    return False
+
+def is_match_spec_break( item ):
+    if item in { None, Break }:
+        return True
+    if isinstance( item, PartialType ):
+        return not item.ignore
+    return False
+
 def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, nameservers=None, debug_print=None, sharded=False):
     """Compute a total over the window for some set of keys.
     
@@ -480,23 +525,32 @@ def total(match_spec, parts, window, rkvdns, delimiter=DEFAULT_DELIMITER, namese
     if sharded:
         for i in range(parts-1):
             if i < len(match_spec):
-                if match_spec[i] in MATCH_SPEC_HANDLERS:
-                    if match_spec[i] in MATCH_SPEC_BREAK:
+                if is_match_spec_handler(match_spec[i]):
+                    if is_match_spec_break(match_spec[i]):
                         # Ignore items are not added here.
                         item_of_interest.append(i)
-                        match_spec[i] = REDIS_WILDCARD
+                        if isinstance( match_spec[i], PartialType ):
+                            match_spec[i] = match_spec[i].partial
+                        else:
+                            match_spec[i] = REDIS_WILDCARD
                     else:
-                        match_spec[i] = SHARD_IGNORE
+                        if isinstance( match_spec[i], PartialType ):
+                            match_spec[i] = match_spec[i].partial
+                        else:
+                            match_spec[i] = SHARD_IGNORE
             else:
                 match_spec.append( SHARD_IGNORE )
         match_spec.append( REDIS_WILDCARD )
     else:
         for i in range(len(match_spec)):
-            if match_spec[i] in MATCH_SPEC_HANDLERS:
-                if match_spec[i] in MATCH_SPEC_BREAK:
+            if is_match_spec_handler(match_spec[i]):
+                if is_match_spec_break(match_spec[i]):
                     # Ignore items are not added here.
                     item_of_interest.append(i)
-                match_spec[i] = REDIS_WILDCARD
+                if isinstance( match_spec[i], PartialType ):
+                    match_spec[i] = match_spec[i].spec
+                else:
+                    match_spec[i] = REDIS_WILDCARD
         if not match_spec[-1].endswith(REDIS_WILDCARD):
             match_spec.append(REDIS_WILDCARD)
 
