@@ -326,7 +326,7 @@ class WatchList(object):
         
         port_key = self.PORT_KEY_FORMAT.format(address, port)
         if port_key not in self.port_rules:
-            return matched
+            return matches
 
         for rule in self.port_rules[port_key]:
             matched = rule.substitutions['matchex'].search(message)
