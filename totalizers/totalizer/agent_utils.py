@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2022 by Fred Morris Tacoma WA
+# Copyright (c) 2022,2026 by Fred Morris Tacoma WA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 """Utilities for the Totalizer Agent."""
 
 from time import time
+import logging
 import re
 from ipaddress import ip_address
 
