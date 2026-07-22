@@ -260,6 +260,7 @@ class WatchList(object):
         KeyError            An error when attempting to generate a key.
     """
     PORT_KEY_FORMAT = '{}:{}'
+    LOGGING_MAGIC_STRING = 'totalizer postproc error:'
 
     def __init__(self):
         self.rules = []
@@ -325,6 +326,10 @@ class WatchList(object):
         """
         matches = []
         
+        # Stops a loop where our warning gets reprocessed again, and again...
+        if self.LOGGING_MAGIC_STRING in message:
+            return matches
+        
         port_key = self.PORT_KEY_FORMAT.format(address, port)
         if port_key not in self.port_rules:
             return matches
@@ -337,7 +342,8 @@ class WatchList(object):
                 try:
                     kwargs = rule.substitutions['postproc'](matched)
                 except Exception as e:
-                    logging.warn('postproc error: {} prefix={} in <{}>'.format(
+                    logging.warn('{} {} prefix={} in <{}>'.format(
+                                    self.LOGGING_MAGIC_STRING,
                                     e, rule.substitutions.get('prefix','--none--'), message
                                 ) )
                     kwargs=None
